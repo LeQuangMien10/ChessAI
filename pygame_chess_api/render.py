@@ -120,23 +120,23 @@ class Gui:
     def generate_textures(self):
         #moves textures
         Move.TEXTURES = {
-            Move.TO_EMPTY_MOVE: image.load('pygame_chess_api/assets/square_of_highlight.png'),
-            Move.KILL_MOVE: image.load('pygame_chess_api/assets/square_of_kill.png'),
-            Move.SPECIAL_MOVE: image.load('pygame_chess_api/assets/square_of_special.png'),
+            Move.TO_EMPTY_MOVE: image.load('assets/square_of_highlight.png'),
+            Move.KILL_MOVE: image.load('assets/square_of_kill.png'),
+            Move.SPECIAL_MOVE: image.load('assets/square_of_special.png'),
         }
         #check
-        Check.IN_CHECK_TEXTURE = image.load('pygame_chess_api/assets/square_of_in_check.png')
+        Check.IN_CHECK_TEXTURE = image.load('assets/square_of_in_check.png')
 
         #cases textures
-        Case.BLACK_TEXTURE = image.load('pygame_chess_api/assets/black_square.png')
-        Case.WHITE_TEXTURE = image.load('pygame_chess_api/assets/white_square.png')
+        Case.BLACK_TEXTURE = image.load('assets/black_square.png')
+        Case.WHITE_TEXTURE = image.load('assets/white_square.png')
 
         #pieces textures
         pieces_dir_path = self.ASSETS_FOLDER
         for cur_class_name, cur_class in self.PIECE_TYPE_NAME_TO_OBJ.items():
             for color in (Piece.WHITE, Piece.BLACK):
                 f_name = Piece.INT_COLOR_TO_TEXT[color].lower() + "_" + cur_class_name + ".png"
-                texture = image.load(f'pygame_chess_api/assets/{f_name}')
+                texture = image.load(f'assets/{f_name}')
                 texture = pygame.transform.smoothscale(texture, self.SQUARE_SIZE)
                 if self.verbose >= 2: print("adding", f_name, "texture")
                 if color == Piece.WHITE:
@@ -154,9 +154,9 @@ class Gui:
         textures = []
         for c in classes_name:
             if color == Piece.WHITE:
-                cur_texture = image.load(f"pygame_chess_api/assets/white_{c}.png")
+                cur_texture = image.load(f"assets/white_{c}.png")
             else:
-                cur_texture = image.load(f"pygame_chess_api/assets/black{c}.png")
+                cur_texture = image.load(f"assets/black{c}.png")
             cur_texture = pygame.transform.smoothscale(cur_texture, tuple([s*2 for s in self.SQUARE_SIZE]))
             textures.append(cur_texture)
 
