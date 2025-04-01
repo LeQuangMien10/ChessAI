@@ -97,7 +97,7 @@ class Gui:
         #drawing pieces
         for piece in self.board.pieces_by_pos.values():
             if piece is not self.mouse_piece_holding:
-                #if it's holded we won't draw it on its static coords
+                #if it's held we won't draw it on its static coords
                 self.screen.blit(piece.texture, tuple([piece.pos[i]*self.SQUARE_SIZE[i] for i in range(len(piece.pos))]))
         
         #drawing highlighted cases
@@ -107,7 +107,7 @@ class Gui:
             check_piece = self.board.check_pieces[self.board.cur_color_turn]
             self.screen.blit(check_piece.IN_CHECK_TEXTURE, tuple([check_piece.pos[i]*self.SQUARE_SIZE[i] for i in range(2)]))
 
-        #drawing holded piece
+        #drawing held piece
         if self.mouse_piece_holding:
             mouse_pos = pygame.mouse.get_pos()
             self.screen.blit(self.mouse_piece_holding.texture, tuple([mouse_pos[i] - self.SQUARE_SIZE[i]/2 for i in range(2)]))
@@ -156,7 +156,7 @@ class Gui:
             if color == Piece.WHITE:
                 cur_texture = image.load(f"assets/white_{c}.png")
             else:
-                cur_texture = image.load(f"assets/black{c}.png")
+                cur_texture = image.load(f"assets/black_{c}.png")
             cur_texture = pygame.transform.smoothscale(cur_texture, tuple([s*2 for s in self.SQUARE_SIZE]))
             textures.append(cur_texture)
 

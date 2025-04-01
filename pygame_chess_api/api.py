@@ -182,7 +182,7 @@ class Piece:
 class Rook(Piece):
     '''Class for Rooks, please refer to :class:`Piece`'''
     NAME = "Rook"
-    SCORE_VALUE = 5
+    SCORE_VALUE = 500
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -193,6 +193,7 @@ class Rook(Piece):
 class Check(Piece):
     '''Class for Checks, please refer to :class:`Piece`'''
     NAME = "Check"
+    SCORE_VALUE = 20000
     IN_CHECK_TEXTURE = None
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -209,7 +210,7 @@ class Check(Piece):
             board = self.board
             self_in_hypothesis = self
         
-        if self.board.hypothesis_board:print("in_check_situation with self hypothesis board")
+        # if self.board.hypothesis_board:print("in_check_situation with self hypothesis board")
         
         for piece in board.pieces_by_pos.values():
             if piece.color != self.color:
@@ -256,7 +257,7 @@ class Check(Piece):
 class Queen(Piece):
     '''Class for Queens, please refer to :class:`Piece`'''
     NAME = "Queen"
-    SCORE_VALUE = 10
+    SCORE_VALUE = 900
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -267,7 +268,7 @@ class Queen(Piece):
 class Bishop(Piece):
     '''Class for Bishops, please refer to :class:`Piece`'''
     NAME = "Bishop"
-    SCORE_VALUE = 3
+    SCORE_VALUE = 330
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -278,7 +279,7 @@ class Bishop(Piece):
 class Knight(Piece):
     '''Class for Knights, please refer to :class:`Piece`'''
     NAME = "Knight"
-    SCORE_VALUE = 3
+    SCORE_VALUE = 320   
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -289,7 +290,7 @@ class Knight(Piece):
 class Pawn(Piece):
     '''Class for Pawns, please refer to :class:`Piece`'''
     NAME = "Pawn"
-    SCORE_VALUE = 1
+    SCORE_VALUE = 100
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -423,7 +424,7 @@ class Board:
     def _new_turn(self): #returns if there is a checkmate
         self.cur_color_turn = 1 - self.cur_color_turn
         self.cur_color_turn_in_check = self.check_pieces[self.cur_color_turn].in_check_situation()
-        if self.cur_color_turn_in_check: print(f"{self.check_pieces[self.cur_color_turn]} is in check situation")
+        # if self.cur_color_turn_in_check: print(f"{self.check_pieces[self.cur_color_turn]} is in check situation")
         #we check if it is a checkmate situation
         for piece in tuple(self.pieces_by_pos.values()):
             if piece.color == self.cur_color_turn:
@@ -482,7 +483,7 @@ class Board:
             if call_new_turn:
                 #if we must make a Pawn promote
                 if isinstance(piece, Pawn) and ((piece.color == Piece.WHITE and piece.pos[1] == 0) or (piece.color == Piece.BLACK and piece.pos[1] == 7)):
-                    if self.verbose >= 1: print(f"{piece} upgrading!")
+                    # if self.verbose >= 1: print(f"{piece} upgrading!")
                     new_piece_class = piece.promote_class_wanted
                     if new_piece_class is None:
                         warn(f"No promote_class_wanted for {piece}, you should set the pawn's attribute promote_class_wanted before moving it\nWe'll use a Queen to promote it")
@@ -502,12 +503,12 @@ class Board:
     def create_hypothesis_board(self, pieces_with_pos_to_change={}):
         '''| Allows you to create hypothesis boards, an independent copy of the current Board
         | Returns another Board obj'''
-        if self.hypothesis_board: print("Warning: creating a hypothesis from another hypothesis")
+        # if self.hypothesis_board: print("Warning: creating a hypothesis from another hypothesis")
 
         hypo_board = Board(pieces_by_pos={}, cur_color_turn=self.cur_color_turn, verbose=self.verbose)
 
         real_piece_to_hypothesis_piece = {}
-        #copying pieces_by_pos
+        # Copying pieces_by_pos
         pieces_by_pos = {}
         for pos, piece in self.pieces_by_pos.items():
             piece_copy = piece.copy(hypo_board)
@@ -515,14 +516,14 @@ class Board:
             pieces_by_pos[pos] = piece_copy
         hypo_board.pieces_by_pos = pieces_by_pos
 
-        #copying moves_history
+        # Copying move_history
         move_history = []
         for cur_history_point in self.move_history:
             if cur_history_point['piece'] in real_piece_to_hypothesis_piece:
                 cur_hypothesis_piece = real_piece_to_hypothesis_piece[cur_history_point['piece']]
-            else: #meaning that the piece is dead
+            else:  # Meaning that the piece is dead
                 cur_hypothesis_piece = cur_history_point["piece"]
-            
+
             move_history.append({
                 "ini_pos": cur_history_point['ini_pos'],
                 "move": cur_history_point['move'].copy(cur_hypothesis_piece),
@@ -530,10 +531,13 @@ class Board:
                 "has_already_moved": cur_history_point['has_already_moved']
             })
         hypo_board.move_history = move_history
-        
+
         hypo_board._init_vars()
-        
+
         for piece, new_pos in pieces_with_pos_to_change.items():
-            hypo_board.move_piece(real_piece_to_hypothesis_piece[piece], new_pos, skip_allowed_verif=True, call_new_turn=False)
+            if piece in real_piece_to_hypothesis_piece:
+                hypo_board.move_piece(real_piece_to_hypothesis_piece[piece], new_pos, skip_allowed_verif=True, call_new_turn=False)
+            else:
+                print(f"Warning: Piece {piece} not found in hypothesis board")
 
         return hypo_board
