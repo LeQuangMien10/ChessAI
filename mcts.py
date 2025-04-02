@@ -111,7 +111,7 @@ def mcts(root_state, time_limit=9.75):
 
         # Nếu chỉ có 1 nước đi hợp lệ, trả về ngay
         if len(valid_moves) == 1:
-            return valid_moves[0][1]
+            return valid_moves[0]
 
         # Nếu có ít nước đi, giảm thời gian tìm kiếm
         if len(valid_moves) < 5:
@@ -145,8 +145,8 @@ def mcts(root_state, time_limit=9.75):
         max_depth = 10
 
         while not sim_state.game_ended and simulation_depth < max_depth:
-            # if time.time() >= end_time:
-            #     break
+            if time.time() >= end_time:
+                break
 
             valid_moves = []
             for piece in sim_state.pieces_by_pos.values():
@@ -154,7 +154,7 @@ def mcts(root_state, time_limit=9.75):
                     moves = piece.get_moves_allowed()
                     for move in moves:
                         if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
-                            sim_state.pieces_by_pos[piece.pos].promote_class_wanted = Queen
+                            piece.promote_class_wanted = Queen
                         valid_moves.append((piece, move))
 
             if not valid_moves:
