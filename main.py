@@ -18,5 +18,3 @@ if __name__ == "__main__":  # Đảm bảo mã khởi tạo game nằm trong kh�
 
     gui.run_pygame_loop(function_for_ai)
 '''function_for_ai handles AI turns'''
-
-# ToDo: Transposition Table
