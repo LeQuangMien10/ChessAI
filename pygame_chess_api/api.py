@@ -64,6 +64,7 @@ class Piece:
     '''Base class for pieces'''
     WHITE_TEXTURE, BLACK_TEXTURE = None, None #will be used only in children
     SCORE_VALUE = 0 #will be used in children
+    POSITION_BONUS = []
     WHITE, BLACK = 0, 1
     INT_COLOR_TO_TEXT = {0: "White", 1: "Black"}
     DIAGONALS_VECTORS = ((-1, -1), (1, -1), (-1, 1), (1, 1))
@@ -183,6 +184,17 @@ class Rook(Piece):
     '''Class for Rooks, please refer to :class:`Piece`'''
     NAME = "Rook"
     SCORE_VALUE = 500
+    POSITION_BONUS = [
+        [ 0,  0,  0,  5,  5,  0,  0,  0],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [ 5, 10, 10, 10, 10, 10, 10,  5],
+        [ 0,  0,  0,  0,  0,  0,  0,  0]
+    ]
+
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -192,8 +204,19 @@ class Rook(Piece):
 
 class King(Piece):
     '''Class for Checks, please refer to :class:`Piece`'''
-    NAME = "Check"
+    NAME = "King"
     SCORE_VALUE = 20000
+    POSITION_BONUS = [
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-20,-30,-30,-40,-40,-30,-30,-20],
+        [-10,-20,-20,-20,-20,-20,-20,-10],
+        [ 20, 20,  0,  0,  0,  0, 20, 20],
+        [ 20, 30, 10,  0,  0, 10, 30, 20]
+    ]
+
     IN_CHECK_TEXTURE = None
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -258,6 +281,17 @@ class Queen(Piece):
     '''Class for Queens, please refer to :class:`Piece`'''
     NAME = "Queen"
     SCORE_VALUE = 900
+    POSITION_BONUS = [
+        [-20,-10,-10, -5, -5,-10,-10,-20],
+        [-10,  0,  5,  0,  0,  0,  0,-10],
+        [-10,  5,  5,  5,  5,  5,  0,-10],
+        [  0,  0,  5,  5,  5,  5,  0, -5],
+        [ -5,  0,  5,  5,  5,  5,  0, -5],
+        [-10,  0,  5,  5,  5,  5,  0,-10],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-20,-10,-10, -5, -5,-10,-10,-20]
+    ]
+
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -269,6 +303,17 @@ class Bishop(Piece):
     '''Class for Bishops, please refer to :class:`Piece`'''
     NAME = "Bishop"
     SCORE_VALUE = 330
+    POSITION_BONUS = [
+        [-20,-10,-10,-10,-10,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5, 10, 10,  5,  0,-10],
+        [-10,  5,  5, 10, 10,  5,  5,-10],
+        [-10,  0, 10, 10, 10, 10,  0,-10],
+        [-10, 10, 10, 10, 10, 10, 10,-10],
+        [-10,  5,  0,  0,  0,  0,  5,-10],
+        [-20,-10,-10,-10,-10,-10,-10,-20]
+    ]
+
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -279,7 +324,18 @@ class Bishop(Piece):
 class Knight(Piece):
     '''Class for Knights, please refer to :class:`Piece`'''
     NAME = "Knight"
-    SCORE_VALUE = 320   
+    SCORE_VALUE = 320
+    POSITION_BONUS = [
+        [-50,-40,-30,-30,-30,-30,-40,-50],
+        [-40,-20,  0,  5,  5,  0,-20,-40],
+        [-30,  5, 10, 15, 15, 10,  5,-30],
+        [-30,  0, 15, 20, 20, 15,  0,-30],
+        [-30,  5, 15, 20, 20, 15,  5,-30],
+        [-30,  0, 10, 15, 15, 10,  0,-30],
+        [-40,-20,  0,  0,  0,  0,-20,-40],
+        [-50,-40,-30,-30,-30,-30,-40,-50]
+    ]
+
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)
@@ -291,6 +347,16 @@ class Pawn(Piece):
     '''Class for Pawns, please refer to :class:`Piece`'''
     NAME = "Pawn"
     SCORE_VALUE = 100
+    POSITION_BONUS = [
+        [0,  0,  0,  0,  0,  0,  0,  0],
+        [80, 80, 80, 80, 80, 80, 80, 80],
+        [50, 50, 50, 50, 50, 50, 50, 50],
+        [10, 10, 20, 30, 30, 20, 10, 10],
+        [5,  5, 10, 25, 25, 10,  5,  5],
+        [0,  0,  0,  5,  5,  0,  0,  0],
+        [5, -5,-10,  0,  0,-10, -5,  5],
+        [0,  0,  0,  0,  0,  0,  0,  0]
+    ]
     '''Value for score evaluation'''
     def __init__(self, color, pos: tuple, board):
         super().__init__(color, pos, board)

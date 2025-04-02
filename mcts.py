@@ -3,6 +3,7 @@ import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+from position_bonus import *
 from pygame_chess_api.api import Pawn, Queen, Knight, Bishop, Rook
 from trans_table import TTABLE
 
@@ -74,18 +75,6 @@ class Node:
 
 
 def evaluate_board(state, perspective_color):
-    # Điểm vị trí cho tốt (khuyến khích tốt tiến lên)
-    pawn_position_bonus = [
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [50, 50, 50, 50, 50, 50, 50, 50],
-        [10, 10, 20, 30, 30, 20, 10, 10],
-        [5, 5, 10, 25, 25, 10, 5, 5],
-        [0, 0, 0, 20, 20, 0, 0, 0],
-        [5, -5, -10, 0, 0, -10, -5, 5],
-        [5, 10, 10, -20, -20, 10, 10, 5],
-        [0, 0, 0, 0, 0, 0, 0, 0]
-    ]
-
     score = 0
 
     # Tính điểm dựa trên quân cờ và vị trí
@@ -95,14 +84,11 @@ def evaluate_board(state, perspective_color):
             # Điểm cơ bản của quân cờ
             piece_value = piece.SCORE_VALUE
             score += piece_value * multiplier
-
-            # Điểm bonus cho vị trí của tốt
-            if isinstance(piece, Pawn):
-                row, col = piece.pos[1], piece.pos[0]
-                if color == 1:  # Đen
-                    row = 7 - row  # Lật bảng cho quân đen
-                position_bonus = pawn_position_bonus[row][col]
-                score += position_bonus * multiplier
+            row, col = piece.pos[1], piece.pos[0]
+            if color == 1:  # Đen
+                row = 7 - row  # Lật bảng cho quân đen
+            position_bonus = piece.POSITION_BONUS[row][col]
+            score += position_bonus * multiplier
 
     # Thêm điểm cho các yếu tố chiến thuật
     if state.cur_color_turn_in_check:
