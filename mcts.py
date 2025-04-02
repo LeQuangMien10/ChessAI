@@ -1,8 +1,9 @@
 import math
 import random
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from pygame_chess_api.api import Pawn, Queen, Knight, Bishop
+from pygame_chess_api.api import Pawn, Queen, Knight, Bishop, Rook
 
 class Node:
     def __init__(self, state, parent=None, move=None):
@@ -20,10 +21,14 @@ class Node:
             if piece.color == self.state.cur_color_turn:
                 moves = piece.get_moves_allowed()
                 for move in moves:
-                    # Nếu là tốt và đây là nước đi phong cấp
                     if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
-                        piece.promote_class_wanted = Queen
-                    self.untried_moves.append((piece, move))
+                        for promote_class in [Queen, Knight, Bishop, Rook]:
+                            move_copy = move.copy(piece)
+                            # Lưu thông tin về lớp phong cấp vào move
+                            move_copy.promote_class = promote_class
+                            self.untried_moves.append((piece, move_copy))
+                    else:
+                        self.untried_moves.append((piece, move))
 
     def is_fully_expanded(self):
         return len(self.untried_moves) == 0
@@ -40,6 +45,11 @@ class Node:
         new_state = self.state.create_hypothesis_board()
         # Lấy quân cờ từ bản sao của bàn cờ
         new_piece = new_state.pieces_by_pos[piece.pos]
+        
+        # Thiết lập promote_class_wanted cho quân tốt mới nếu cần
+        if isinstance(new_piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
+            new_piece.promote_class_wanted = move.promote_class
+        
         new_state.move_piece(new_piece, move)
         child_node = Node(new_state, parent=self, move=move)
         self.children.append(child_node)
@@ -97,27 +107,9 @@ def evaluate_board(state, perspective_color):
 
     return score
 
-def mcts(root_state, time_limit=9.75):
-
-    # Kiểm tra nếu đang bị chiếu
-    if root_state.cur_color_turn_in_check:
-        # Tìm tất cả nước đi hợp lệ khi bị chiếu
-        valid_moves = []
-        for piece in root_state.pieces_by_color[root_state.cur_color_turn]:
-            moves = piece.get_moves_allowed()
-            for move in moves:
-                # Tạo bản sao của move và piece
-                valid_moves.append((piece, move))
-
-        # Nếu chỉ có 1 nước đi hợp lệ, trả về ngay
-        if len(valid_moves) == 1:
-            return valid_moves[0]
-
-        # Nếu có ít nước đi, giảm thời gian tìm kiếm
-        if len(valid_moves) < 5:
-            time_limit = min(time_limit, 2.0)
-
-    # Tiếp tục với MCTS bình thường
+# Hàm MCTS cho một worker
+def mcts_worker(root_state, time_limit, seed):
+    random.seed(seed)  # Đảm bảo mỗi worker có một seed khác nhau
     root = Node(root_state)
     start_time = time.time()
     end_time = start_time + time_limit
@@ -140,7 +132,6 @@ def mcts(root_state, time_limit=9.75):
 
         # Simulation
         sim_state = node.state.create_hypothesis_board()
-
         simulation_depth = 0
         max_depth = 10
 
@@ -154,13 +145,19 @@ def mcts(root_state, time_limit=9.75):
                     moves = piece.get_moves_allowed()
                     for move in moves:
                         if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
-                            piece.promote_class_wanted = Queen
-                        valid_moves.append((piece, move))
+                            for promote_class in [Queen, Knight, Bishop, Rook]:
+                                move_copy = move.copy(piece)
+                                move_copy.promote_class = promote_class
+                                valid_moves.append((piece, move_copy))
+                        else:
+                            valid_moves.append((piece, move))
 
             if not valid_moves:
                 break
 
             piece, move = random.choice(valid_moves)
+            if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
+                piece.promote_class_wanted = move.promote_class
             sim_state.move_piece(sim_state.pieces_by_pos[piece.pos], move)
             simulation_depth += 1
 
@@ -169,20 +166,46 @@ def mcts(root_state, time_limit=9.75):
             if sim_state.game_ended:
                 result = 1 if sim_state.winner == root_state.cur_color_turn else (-1 if sim_state.winner is not None else 0)
             else:
-                # Sử dụng heuristic khi game chưa kết thúc
                 evaluation = evaluate_board(sim_state, root_state.cur_color_turn)
                 result = evaluation / 20000.0
             
             node.update(result)
             node = node.parent
 
-    # In ra thời gian tính toán
+    best_child = root.best_child(exploration_weight=0)
+    return best_child.move
+
+# Hàm MCTS song song
+def parallel_mcts(root_state, time_limit=9.25, num_workers=4):
+
+    start_time = time.time()
+
+    # Kiểm tra nếu đang bị chiếu
+    if root_state.cur_color_turn_in_check:
+        valid_moves = []
+        for piece in root_state.pieces_by_color[root_state.cur_color_turn]:
+            moves = piece.get_moves_allowed()
+            for move in moves:
+                valid_moves.append((piece, move))
+        if len(valid_moves) == 1:
+            return valid_moves[0]
+
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = [executor.submit(mcts_worker, root_state, time_limit, i) for i in range(num_workers)]
+        results = [future.result() for future in as_completed(futures)]
+
+    # Tính toán nước đi tốt nhất từ các kết quả
+    move_counts = {}
+    for move in results:
+        if move in move_counts:
+            move_counts[move] += 1
+        else:
+            move_counts[move] = 1
+
+    best_move = max(move_counts, key=move_counts.get)
+    best_piece = root_state.pieces_by_pos[best_move.piece.pos]
+
     elapsed_time = time.time() - start_time
     print(f"Thời gian tính toán: {elapsed_time:.2f} giây")
-
-    # Chọn nước đi tốt nhất
-    best_child = root.best_child(exploration_weight=0)
-    best_move = best_child.move
-    best_piece = root_state.pieces_by_pos[best_move.piece.pos]
 
     return best_piece, best_move

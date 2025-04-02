@@ -10,7 +10,7 @@ from time import time
 
 class Gui:
     '''Class for the pygame's gui, it will enable you to display the game and human players to move pieces'''
-    PIECE_TYPE_NAME_TO_OBJ = {"check": Check, "queen": Queen, "rook": Rook, "bishop": Bishop, "knight": Knight, "pawn": Pawn}
+    PIECE_TYPE_NAME_TO_OBJ = {"check": King, "queen": Queen, "rook": Rook, "bishop": Bishop, "knight": Knight, "pawn": Pawn}
     ASSETS_FOLDER = os.path.join(__location__, 'assets')
 
     def __init__(self, board:Board, colors_managed_by_gui=(Piece.WHITE, Piece.BLACK), window_title="Chess Game", SCREEN_SIZE=(800, 800), FPS=60, verbose=1):
@@ -125,7 +125,7 @@ class Gui:
             Move.SPECIAL_MOVE: image.load('assets/square_of_special.png'),
         }
         #check
-        Check.IN_CHECK_TEXTURE = image.load('assets/square_of_in_check.png')
+        King.IN_CHECK_TEXTURE = image.load('assets/square_of_in_check.png')
 
         #cases textures
         Case.BLACK_TEXTURE = image.load('assets/black_square.png')

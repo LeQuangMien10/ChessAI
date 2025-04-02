@@ -190,7 +190,7 @@ class Rook(Piece):
     def get_moves_allowed(self, skip_check_verification=False): #returns every move allowed
         return self.cases_allowed_in_line(skip_check_verification)
 
-class Check(Piece):
+class King(Piece):
     '''Class for Checks, please refer to :class:`Piece`'''
     NAME = "Check"
     SCORE_VALUE = 20000
@@ -345,8 +345,8 @@ class Board:
     '''Represents the whole game board, containing pieces and data about current and past turns'''
     #we'll always consider that white starts in the bottom screen and black in the upper, so the white knight will be (4, 8) and the black one at (4, 0)
     BACK_LINE_INIT_POSITIONS = {(0, 0): Rook, (1, 0): Knight, (2, 0): Bishop,
-        (3, 0): Queen, (4, 0): Check, (5, 0): Bishop,
-        (6, 0): Knight, (7, 0): Rook} #uses 0 as y back line
+                                (3, 0): Queen, (4, 0): King, (5, 0): Bishop,
+                                (6, 0): Knight, (7, 0): Rook} #uses 0 as y back line
     COLORS = (Piece.WHITE, Piece.BLACK)
     
     def __init__(self, pieces_by_pos=None, move_history=[], cur_color_turn=Case.WHITE, verbose=1):
