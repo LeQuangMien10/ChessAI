@@ -4,6 +4,8 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pygame_chess_api.api import Pawn, Queen, Knight, Bishop, Rook
+from trans_table import TTABLE
+
 
 class Node:
     def __init__(self, state, parent=None, move=None):
@@ -14,6 +16,7 @@ class Node:
         self.visits = 0
         self.value = 0
         self.untried_moves = []
+        self.board_hash = TTABLE.compute_hash(state)
         self.get_untried_moves()
 
     def get_untried_moves(self):
@@ -35,8 +38,8 @@ class Node:
 
     def best_child(self, exploration_weight=1.4):
         choices = [(child, child.value / (child.visits + 1e-6) +
-                   exploration_weight * math.sqrt(math.log(self.visits + 1) / (child.visits + 1e-6)))
-                  for child in self.children]
+                    exploration_weight * math.sqrt(math.log(self.visits + 1) / (child.visits + 1e-6)))
+                   for child in self.children]
         return max(choices, key=lambda x: x[1])[0]
 
     def expand(self):
@@ -45,11 +48,11 @@ class Node:
         new_state = self.state.create_hypothesis_board()
         # Lấy quân cờ từ bản sao của bàn cờ
         new_piece = new_state.pieces_by_pos[piece.pos]
-        
+
         # Thiết lập promote_class_wanted cho quân tốt mới nếu cần
         if isinstance(new_piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
             new_piece.promote_class_wanted = move.promote_class
-        
+
         new_state.move_piece(new_piece, move)
         child_node = Node(new_state, parent=self, move=move)
         self.children.append(child_node)
@@ -69,18 +72,18 @@ class Node:
             return 0
         return -1
 
-def evaluate_board(state, perspective_color):
 
+def evaluate_board(state, perspective_color):
     # Điểm vị trí cho tốt (khuyến khích tốt tiến lên)
     pawn_position_bonus = [
-        [0,  0,  0,  0,  0,  0,  0,  0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
         [50, 50, 50, 50, 50, 50, 50, 50],
         [10, 10, 20, 30, 30, 20, 10, 10],
-        [5,  5, 10, 25, 25, 10,  5,  5],
-        [0,  0,  0, 20, 20,  0,  0,  0],
-        [5, -5,-10,  0,  0,-10, -5,  5],
-        [5, 10, 10,-20,-20, 10, 10,  5],
-        [0,  0,  0,  0,  0,  0,  0,  0]
+        [5, 5, 10, 25, 25, 10, 5, 5],
+        [0, 0, 0, 20, 20, 0, 0, 0],
+        [5, -5, -10, 0, 0, -10, -5, 5],
+        [5, 10, 10, -20, -20, 10, 10, 5],
+        [0, 0, 0, 0, 0, 0, 0, 0]
     ]
 
     score = 0
@@ -107,9 +110,12 @@ def evaluate_board(state, perspective_color):
 
     return score
 
+
 # Hàm MCTS cho một worker
 def mcts_worker(root_state, time_limit, seed):
-    random.seed(seed)  # Đảm bảo mỗi worker có một seed khác nhau
+    # Tạo một TranspositionTable riêng cho worker
+    worker_table = {}
+    random.seed(seed)
     root = Node(root_state)
     start_time = time.time()
     end_time = start_time + time_limit
@@ -164,23 +170,27 @@ def mcts_worker(root_state, time_limit, seed):
         # Backpropagation
         while node is not None:
             if sim_state.game_ended:
-                result = 1 if sim_state.winner == root_state.cur_color_turn else (-1 if sim_state.winner is not None else 0)
+                result = 1 if sim_state.winner == root_state.cur_color_turn else (
+                    -1 if sim_state.winner is not None else 0)
             else:
                 evaluation = evaluate_board(sim_state, root_state.cur_color_turn)
                 result = evaluation / 20000.0
-            
-            node.update(result)
+
+            node.visits += 1
+            node.value += result
+            # Lưu vào worker table
+            worker_table[node.board_hash] = (node.value, node.visits, time.time())
             node = node.parent
 
     best_child = root.best_child(exploration_weight=0)
-    return best_child.move
+    # Trả về cả nước đi và worker table
+    return best_child.move, worker_table
+
 
 # Hàm MCTS song song
 def parallel_mcts(root_state, time_limit=9.25, num_workers=4):
-
     start_time = time.time()
 
-    # Kiểm tra nếu đang bị chiếu
     if root_state.cur_color_turn_in_check:
         valid_moves = []
         for piece in root_state.pieces_by_color[root_state.cur_color_turn]:
@@ -190,22 +200,37 @@ def parallel_mcts(root_state, time_limit=9.25, num_workers=4):
         if len(valid_moves) == 1:
             return valid_moves[0]
 
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = [executor.submit(mcts_worker, root_state, time_limit, i) for i in range(num_workers)]
-        results = [future.result() for future in as_completed(futures)]
+    # Kiểm tra và làm sạch table cũ
+    TTABLE.cleanup_old_entries()
 
-    # Tính toán nước đi tốt nhất từ các kết quả
+    # Thực hiện MCTS song song
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = [executor.submit(mcts_worker, root_state, time_limit, i)
+                   for i in range(num_workers)]
+        results = []
+        worker_tables = []
+        for future in as_completed(futures):
+            move, worker_table = future.result()
+            results.append(move)
+            worker_tables.append(worker_table)
+
+    # Merge kết quả từ tất cả các worker
+    for worker_table in worker_tables:
+        TTABLE.merge_from_worker(worker_table)
+
+    # Tính toán nước đi tốt nhất
     move_counts = {}
     for move in results:
-        if move in move_counts:
-            move_counts[move] += 1
-        else:
-            move_counts[move] = 1
+        move_counts[move] = move_counts.get(move, 0) + 1
 
-    best_move = max(move_counts, key=move_counts.get)
+    best_move = max(move_counts.items(), key=lambda x: x[1])[0]
     best_piece = root_state.pieces_by_pos[best_move.piece.pos]
+
+    # Lưu transposition table
+    TTABLE.save_table()
 
     elapsed_time = time.time() - start_time
     print(f"Thời gian tính toán: {elapsed_time:.2f} giây")
+    print(f"Số lượng entries trong table: {len(TTABLE.table)}")
 
     return best_piece, best_move

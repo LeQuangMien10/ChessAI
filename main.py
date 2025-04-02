@@ -4,7 +4,7 @@ from pygame_chess_api.render import Gui
 from mcts import parallel_mcts
 
 def function_for_ai(board:Board):
-    piece, move = parallel_mcts(board)
+    piece, move = parallel_mcts(board, num_workers=6)
     print(piece, move)
     piece.move(move)
 
