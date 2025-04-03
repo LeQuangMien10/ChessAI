@@ -182,7 +182,7 @@ def is_endgame(state):
     # Định nghĩa endgame khi:
     # 1. Không còn Hậu hoặc
     # 2. Mỗi bên còn ít hơn 2 quân lớn (Xe, Tượng, Mã) hoặc
-    # 3. Tổng giá trị quân còn lại < 3000
+    # 3. Tổng giá trị quân còn lại < 23000
     total_value = {0: 0, 1: 0}
     major_pieces = {0: 0, 1: 0}
     queens = {0: 0, 1: 0}
@@ -197,7 +197,7 @@ def is_endgame(state):
     
     return (sum(queens.values()) == 0 or
             all(mp < 2 for mp in major_pieces.values()) or
-            sum(total_value.values()) < 3000)
+            sum(total_value.values()) < 23000)
 
 
 # Hàm MCTS cho một worker
@@ -263,7 +263,7 @@ def mcts_worker(root_state, time_limit, seed):
                     -1 if sim_state.winner is not None else 0)
             else:
                 evaluation = evaluate_board(sim_state, root_state.cur_color_turn)
-                result = evaluation / 20000.0
+                result = max(-1, min(1, evaluation / 20000.0))
 
             node.visits += 1
             node.value += result
