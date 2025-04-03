@@ -3,7 +3,6 @@ import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from position_bonus import *
 from pygame_chess_api.api import Pawn, Queen, Knight, Bishop, Rook
 from trans_table import TTABLE
 
@@ -84,17 +83,121 @@ def evaluate_board(state, perspective_color):
             # Điểm cơ bản của quân cờ
             piece_value = piece.SCORE_VALUE
             score += piece_value * multiplier
+            
+            # Điểm vị trí
             row, col = piece.pos[1], piece.pos[0]
             if color == 1:  # Đen
                 row = 7 - row  # Lật bảng cho quân đen
             position_bonus = piece.POSITION_BONUS[row][col]
             score += position_bonus * multiplier
 
+            # Đánh giá kiểm soát trung tâm
+            if 2 <= col <= 5 and 2 <= row <= 5:
+                score += 10 * multiplier
+
+            # Đánh giá cặp Tượng
+            if isinstance(piece, Bishop):
+                for other_piece in state.pieces_by_color[color]:
+                    if isinstance(other_piece, Bishop) and other_piece != piece:
+                        score += 50 * multiplier  # Thưởng cho việc giữ được cặp Tượng
+
+            # Đánh giá vị trí Xe
+            if isinstance(piece, Rook):
+                # Xe ở cột mở (không có Tốt cùng màu)
+                pawns_in_col = sum(1 for p in state.pieces_by_color[color] 
+                                 if isinstance(p, Pawn) and p.pos[0] == col)
+                if pawns_in_col == 0:
+                    score += 30 * multiplier  # Thưởng cho Xe ở cột mở
+
+                # Xe ở hàng 7 (hàng 2 với quân đen)
+                if (color == 0 and row == 6) or (color == 1 and row == 1):
+                    score += 20 * multiplier
+
+            # Đánh giá vị trí Tốt
+            if isinstance(piece, Pawn):
+                # Tốt đôi (cùng cột)
+                doubled_pawns = sum(1 for p in state.pieces_by_color[color] 
+                                  if isinstance(p, Pawn) and p.pos[0] == col)
+                if doubled_pawns > 1:
+                    score -= 20 * multiplier  # Phạt cho Tốt đôi
+
+                # Tốt cô lập (không có Tốt ở cột bên cạnh)
+                isolated = True
+                for c in [col-1, col+1]:
+                    if 0 <= c <= 7:
+                        for p in state.pieces_by_color[color]:
+                            if isinstance(p, Pawn) and p.pos[0] == c:
+                                isolated = False
+                                break
+                if isolated:
+                    score -= 15 * multiplier  # Phạt cho Tốt cô lập
+
+                # Tốt thông qua (không bị chặn bởi Tốt đối phương)
+                passed = True
+                enemy_color = 1 - color
+                for r in range(row-1 if color == 0 else row+1, -1 if color == 0 else 8, -1 if color == 0 else 1):
+                    for c in [col-1, col, col+1]:
+                        if 0 <= c <= 7:
+                            for p in state.pieces_by_color[enemy_color]:
+                                if isinstance(p, Pawn) and p.pos == (c, r):
+                                    passed = False
+                                    break
+                if passed:
+                    score += 30 * multiplier  # Thưởng cho Tốt thông qua
+
+    # Đánh giá an toàn của Vua
+    for color in [0, 1]:
+        multiplier = 1 if color == perspective_color else -1
+        king = state.check_pieces[color]
+        king_row, king_col = king.pos[1], king.pos[0]
+        
+        # Phạt Vua ở trung tâm trong giai đoạn đầu/giữa
+        if 2 <= king_col <= 5 and not is_endgame(state):
+            score -= 50 * multiplier
+
+        # Đánh giá che chắn cho Vua
+        pawn_shield = 0
+        if color == 0:  # Trắng
+            shield_positions = [(king_col-1, 6), (king_col, 6), (king_col+1, 6)]
+        else:  # Đen
+            shield_positions = [(king_col-1, 1), (king_col, 1), (king_col+1, 1)]
+        
+        for pos in shield_positions:
+            if 0 <= pos[0] <= 7:
+                for piece in state.pieces_by_color[color]:
+                    if isinstance(piece, Pawn) and piece.pos == pos:
+                        pawn_shield += 1
+        
+        score += (pawn_shield * 10) * multiplier
+
     # Thêm điểm cho các yếu tố chiến thuật
     if state.cur_color_turn_in_check:
         score -= 50 * multiplier  # Trừ điểm nếu bị chiếu
 
     return score
+
+
+def is_endgame(state):
+    """Kiểm tra xem có phải là giai đoạn cuối game không"""
+    # Định nghĩa endgame khi:
+    # 1. Không còn Hậu hoặc
+    # 2. Mỗi bên còn ít hơn 2 quân lớn (Xe, Tượng, Mã) hoặc
+    # 3. Tổng giá trị quân còn lại < 3000
+    total_value = {0: 0, 1: 0}
+    major_pieces = {0: 0, 1: 0}
+    queens = {0: 0, 1: 0}
+    
+    for color in [0, 1]:
+        for piece in state.pieces_by_color[color]:
+            total_value[color] += piece.SCORE_VALUE
+            if isinstance(piece, Queen):
+                queens[color] += 1
+            elif isinstance(piece, (Rook, Bishop, Knight)):
+                major_pieces[color] += 1
+    
+    return (sum(queens.values()) == 0 or
+            all(mp < 2 for mp in major_pieces.values()) or
+            sum(total_value.values()) < 3000)
 
 
 # Hàm MCTS cho một worker
