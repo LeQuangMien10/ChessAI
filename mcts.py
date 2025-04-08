@@ -43,6 +43,15 @@ class Node:
     def calculate_move_priority(self, piece, move):
         priority = 0
 
+        temp_state = self.state.create_hypothesis_board()
+        temp_piece = temp_state.pieces_by_pos[piece.pos]
+        if isinstance(temp_piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
+            temp_piece.promote_class_wanted = piece.promote_class_wanted
+        temp_state.move_piece(temp_piece, move)
+
+        if temp_state.game_ended and temp_state.winner == self.state.cur_color_turn:
+            return 20000
+
         # 1. Capture
         if move.type == Move.KILL_MOVE:
             target_pos = move.target
@@ -62,16 +71,8 @@ class Node:
                 priority += 300
 
         # 3. Check
-        temp_state = self.state.create_hypothesis_board()
-        temp_piece = temp_state.pieces_by_pos[piece.pos]
-        if isinstance(temp_piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
-            temp_piece.promote_class_wanted = piece.promote_class_wanted
-        temp_state.move_piece(temp_piece, move)
         if temp_state.cur_color_turn_in_check:
-            if temp_state.game_ended and temp_state.winner == self.state.cur_color_turn:
-                priority += 20000
-            else:
-                priority += 100
+            priority += 100
 
         # 4. Control the center squares
         if isinstance(piece, (Queen, Knight, Bishop, Rook)):
@@ -91,6 +92,16 @@ class Node:
                 priority += row_progress * 2
             if (piece.color == Piece.WHITE and new_row <= 1) or (piece.color == Piece.BLACK and new_row >= 6):
                 priority += 50
+
+        # 6. Prevent exposing major pieces
+        enemy_color = 1 - self.state.cur_color_turn
+        for ally_piece in temp_state.pieces_by_color[self.state.cur_color_turn]:
+            if isinstance(ally_piece, (Queen, Knight, Bishop, Rook)):
+                for enemy_piece in temp_state.pieces_by_color[enemy_color]:
+                    for enemy_move in enemy_piece.get_moves_allowed():
+                        if enemy_move.type == Move.KILL_MOVE and enemy_move.target == ally_piece.pos:
+                            priority -= ally_piece.SCORE_VALUE * 0.5
+                            break
 
         return priority
 
@@ -230,10 +241,18 @@ def evaluate_board(state, perspective_color):
         
         score += (pawn_shield * 10) * multiplier
 
-    # Thêm điểm cho các yếu tố chiến thuật
-    if state.cur_color_turn_in_check:
-        score -= 50 * multiplier  # Trừ điểm nếu bị chiếu
+        if state.cur_color_turn_in_check:
+            score -= 200 * multiplier  # Trừ điểm nếu bị chiếu
 
+        enemy_color = 1 - color
+        for piece in state.pieces_by_color[color]:
+            if isinstance(piece, (Queen, Rook, Knight, Bishop)):
+                temp_state = state.create_hypothesis_board()
+                for enemy_piece in temp_state.pieces_by_color[enemy_color]:
+                    for move in enemy_piece.get_moves_allowed():
+                        if move.type == Move.KILL_MOVE and move.target == piece.pos:
+                            score -= piece.SCORE_VALUE * 0.5 * multiplier
+                            break
     return score
 
 
@@ -345,6 +364,15 @@ def mcts_worker(root_state, time_limit, seed, max_iterations):
 def calculate_simulation_priority(state, piece, move):
     priority = 0
 
+    temp_state = state.create_hypothesis_board()
+    temp_piece = temp_state.pieces_by_pos[piece.pos]
+    if isinstance(temp_piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
+        temp_piece.promote_class_wanted = piece.promote_class_wanted
+    temp_state.move_piece(temp_piece, move)
+
+    if temp_state.game_ended and temp_state.winner == state.cur_color_turn:
+        return 20000
+
     # 1. Capture
     if move.type == Move.KILL_MOVE:
         target_pos = move.target
@@ -364,18 +392,13 @@ def calculate_simulation_priority(state, piece, move):
             priority += 300
 
     # 3. Check
-    temp_state = state.create_hypothesis_board()
-    temp_piece = temp_state.pieces_by_pos[piece.pos]
-    if isinstance(temp_piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
-        temp_piece.promote_class_wanted = piece.promote_class_wanted
-    temp_state.move_piece(temp_piece, move)
-    if temp_state.cur_color_turn == state.cur_color_turn:
+    if temp_state.cur_color_turn_in_check:
         priority += 100
 
     return priority
 
 # Hàm MCTS song song
-def parallel_mcts(root_state, time_limit=9.25, num_workers=4, max_iterations=1200):
+def parallel_mcts(root_state, time_limit=9, num_workers=4, max_iterations=800):
     start_time = time.time()
 
     TTABLE.load_table()

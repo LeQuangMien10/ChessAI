@@ -24,6 +24,7 @@ if __name__ == "__main__":
     pygame.init()
 
     board = Board()
+
     # board = create_board_from_pieces(
     #     [
     #         ((6, 7), King, Piece.BLACK),  # Vua đen ở g1
