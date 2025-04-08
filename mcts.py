@@ -4,7 +4,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from trans_table import TTABLE
-from pygame_chess_api.api import Pawn, Queen, Knight, Bishop, Rook
+from pygame_chess_api.api import Pawn, Queen, Knight, Bishop, Rook, Move, Piece
 
 
 class Node:
@@ -19,6 +19,8 @@ class Node:
         self.get_untried_moves()
 
     def get_untried_moves(self):
+        move_priorities = []
+
         for pos, piece in self.state.pieces_by_pos.items():
             if piece.color == self.state.cur_color_turn:
                 moves = piece.get_moves_allowed()
@@ -26,11 +28,71 @@ class Node:
                     if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
                         for promote_class in [Queen, Knight, Bishop, Rook]:
                             move_copy = move.copy(piece)
-                            # Lưu thông tin về lớp phong cấp vào move
-                            move_copy.promote_class = promote_class
-                            self.untried_moves.append((piece, move_copy))
+                            piece.promote_class_wanted = promote_class
+                            priority = self.calculate_move_priority(piece, move_copy)
+                            move_priorities.append((piece, move, priority))
                     else:
-                        self.untried_moves.append((piece, move))
+                        priority = self.calculate_move_priority(piece, move)
+                        move_priorities.append((piece, move, priority))
+
+        move_priorities.sort(key=lambda x: x[2], reverse=True)
+
+        self.untried_moves = [(piece, move) for piece, move, _ in move_priorities[:10]]
+
+
+    def calculate_move_priority(self, piece, move):
+        priority = 0
+
+        # 1. Capture
+        if move.type == Move.KILL_MOVE:
+            target_pos = move.target
+            if target_pos in self.state.pieces_by_pos:
+                captured_piece = self.state.pieces_by_pos[target_pos]
+                priority += captured_piece.SCORE_VALUE
+                if isinstance(captured_piece, (Queen, Rook)):
+                    priority += 50
+                elif isinstance(captured_piece, (Knight, Bishop)):
+                    priority += 20
+
+        # 2. Promote
+        if isinstance(piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
+            if piece.promote_class_wanted == Queen:
+                priority += Queen.SCORE_VALUE
+            else:
+                priority += 300
+
+        # 3. Check
+        temp_state = self.state.create_hypothesis_board()
+        temp_piece = temp_state.pieces_by_pos[piece.pos]
+        if isinstance(temp_piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
+            temp_piece.promote_class_wanted = piece.promote_class_wanted
+        temp_state.move_piece(temp_piece, move)
+        if temp_state.cur_color_turn_in_check:
+            if temp_state.game_ended and temp_state.winner == self.state.cur_color_turn:
+                priority += 20000
+            else:
+                priority += 100
+
+        # 4. Control the center squares
+        if isinstance(piece, (Queen, Knight, Bishop, Rook)):
+            new_col, new_row = move.target
+            if 2 <= new_col <= 5 and 2 <= new_row <= 5:
+                priority += 20
+
+        # 5. Push pawn
+        if isinstance(piece, Pawn):
+            new_col, new_row = move.target
+            row_progress = abs(new_row - piece.pos[1])
+            if new_col == 3 or new_col == 4:
+                priority += row_progress * 10
+            elif new_col == 5 or new_col == 2 or new_col == 3 or new_col == 6:
+                priority += row_progress * 5
+            elif new_col == 7 or new_col == 0:
+                priority += row_progress * 2
+            if (piece.color == Piece.WHITE and new_row <= 1) or (piece.color == Piece.BLACK and new_row >= 6):
+                priority += 50
+
+        return priority
 
     def is_fully_expanded(self):
         return len(self.untried_moves) == 0
@@ -42,15 +104,14 @@ class Node:
         return max(choices, key=lambda x: x[1])[0]
 
     def expand(self):
-        # self.get_untried_moves()
-        piece, move = self.untried_moves.pop()
+        piece, move = self.untried_moves.pop(0)
         new_state = self.state.create_hypothesis_board()
         # Lấy quân cờ từ bản sao của bàn cờ
         new_piece = new_state.pieces_by_pos[piece.pos]
 
         # Thiết lập promote_class_wanted cho quân tốt mới nếu cần
         if isinstance(new_piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
-            new_piece.promote_class_wanted = move.promote_class
+            new_piece.promote_class_wanted = piece.promote_class_wanted
 
         new_state.move_piece(new_piece, move)
         child_node = Node(new_state, parent=self, move=move)
@@ -65,7 +126,7 @@ class Node:
         return self.state.game_ended
 
     def get_result(self):
-        if self.state.winner == self.state.cur_color_turn:
+        if self.state.winner == 1 - self.state.cur_color_turn:
             return 1
         elif self.state.winner is None:  # Hòa
             return 0
@@ -206,7 +267,9 @@ def mcts_worker(root_state, time_limit, seed, max_iterations):
     root = Node(root_state)
     start_time = time.time()
 
-    for _ in range(max_iterations):
+    for i in range(max_iterations):
+        if time.time() - start_time >= time_limit:
+            break
         node = root
 
         # Selection
@@ -216,50 +279,54 @@ def mcts_worker(root_state, time_limit, seed, max_iterations):
         # Expansion
         if not node.is_terminal():
             node = node.expand()
+            if node.is_terminal():
+                result = node.get_result()
+            else:
+                # Simulation
+                sim_state = node.state.create_hypothesis_board()
+                simulation_depth = 0
+                max_depth = 3
 
-        # Simulation
-        sim_state = node.state.create_hypothesis_board()
-        simulation_depth = 0
-        max_depth = 3
+                while not sim_state.game_ended and simulation_depth < max_depth:
+                    move_priorities = []
+                    for piece in sim_state.pieces_by_pos.values():
+                        if piece.color == sim_state.cur_color_turn:
+                            moves = piece.get_moves_allowed()
+                            for move in moves:
+                                if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
+                                    for promote_class in [Queen, Knight, Bishop, Rook]:
+                                        move_copy = move.copy(piece)
+                                        piece.promote_class_wanted = promote_class
+                                        priority = calculate_simulation_priority(sim_state, piece, move_copy)
+                                        move_priorities.append((piece, move_copy, priority))
+                                else:
+                                    priority = calculate_simulation_priority(sim_state, piece, move)
+                                    move_priorities.append((piece, move, priority))
 
-        while not sim_state.game_ended and simulation_depth < max_depth:
-            valid_moves = []
-            for piece in sim_state.pieces_by_pos.values():
-                if piece.color == sim_state.cur_color_turn:
-                    moves = piece.get_moves_allowed()
-                    for move in moves:
-                        if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
-                            for promote_class in [Queen, Knight, Bishop, Rook]:
-                                move_copy = move.copy(piece)
-                                move_copy.promote_class = promote_class
-                                valid_moves.append((piece, move_copy))
-                        else:
-                            valid_moves.append((piece, move))
+                    if not move_priorities:
+                        break
 
-            if not valid_moves:
-                break
+                    max_priority = max(priority for _, _, priority in move_priorities)
+                    best_moves = [(piece, move) for piece, move, priority in move_priorities if priority == max_priority]
+                    piece, move = random.choice(best_moves)
+                    sim_state.move_piece(sim_state.pieces_by_pos[piece.pos], move)
+                    simulation_depth += 1
 
-            piece, move = random.choice(valid_moves)
-            if isinstance(piece, Pawn) and move.special_type == move.TO_PROMOTE_TYPE:
-                piece.promote_class_wanted = move.promote_class
-            sim_state.move_piece(sim_state.pieces_by_pos[piece.pos], move)
-            simulation_depth += 1
+                if sim_state.game_ended:
+                    result = 1 if sim_state.winner == root_state.cur_color_turn else (
+                        -1 if sim_state.winner is not None else 0)
+                else:
+                    evaluation = evaluate_board(sim_state, root_state.cur_color_turn)
+                    result = max(-1, min(1, evaluation / 20000.0))
+        else:
+            result = node.get_result()
 
         # Backpropagation
-        if sim_state.game_ended:
-            result = 1 if sim_state.winner == root_state.cur_color_turn else (
-                -1 if sim_state.winner is not None else 0)
-        else:
-            evaluation = evaluate_board(sim_state, root_state.cur_color_turn)
-            result = max(-1, min(1, evaluation / 20000.0))
-
-        # Cập nhật các node và worker_table
         current_node = node
         while current_node is not None:
             current_node.visits += 1
             current_node.value += result
 
-            # Cập nhật worker_table với cùng logic
             node_hash = TTABLE.compute_hash(current_node.state)
             if node_hash in worker_table:
                 old_value, old_visits, _ = worker_table[node_hash]
@@ -274,6 +341,38 @@ def mcts_worker(root_state, time_limit, seed, max_iterations):
     best_child = root.best_child(exploration_weight=0)
     return best_child.move, worker_table
 
+
+def calculate_simulation_priority(state, piece, move):
+    priority = 0
+
+    # 1. Capture
+    if move.type == Move.KILL_MOVE:
+        target_pos = move.target
+        if target_pos in state.pieces_by_pos:
+            captured_piece = state.pieces_by_pos[target_pos]
+            priority += captured_piece.SCORE_VALUE
+            if isinstance(captured_piece, (Queen, Rook)):
+                priority += 50
+            elif isinstance(captured_piece, (Knight, Bishop)):
+                priority += 20
+
+    # 2. Promote
+    if isinstance(piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
+        if piece.promote_class_wanted == Queen:
+            priority += Queen.SCORE_VALUE
+        else:
+            priority += 300
+
+    # 3. Check
+    temp_state = state.create_hypothesis_board()
+    temp_piece = temp_state.pieces_by_pos[piece.pos]
+    if isinstance(temp_piece, Pawn) and move.special_type == Move.TO_PROMOTE_TYPE:
+        temp_piece.promote_class_wanted = piece.promote_class_wanted
+    temp_state.move_piece(temp_piece, move)
+    if temp_state.cur_color_turn == state.cur_color_turn:
+        priority += 100
+
+    return priority
 
 # Hàm MCTS song song
 def parallel_mcts(root_state, time_limit=9.25, num_workers=4, max_iterations=1200):
@@ -309,10 +408,16 @@ def parallel_mcts(root_state, time_limit=9.25, num_workers=4, max_iterations=120
 
     # Tính toán nước đi tốt nhất
     move_stats = {}
-    for move, worker_table in zip(results, worker_tables):
-        move_hash = TTABLE.compute_hash(root_state)
-        if move_hash in worker_table:
-            value, visits, _ = worker_table[move_hash]
+    # for move, worker_table in zip(results, worker_tables):
+    #     move_hash = TTABLE.compute_hash(root_state)
+    for i, move in enumerate(results):
+        temp_state = root_state.create_hypothesis_board()
+        piece = temp_state.pieces_by_pos[move.piece.pos]
+        temp_state.move_piece(piece, move)
+        move_hash = TTABLE.compute_hash(temp_state)
+
+        if move_hash in worker_tables[i]:
+            value, visits, _ = worker_tables[i][move_hash]
             if move in move_stats:
                 old_value, old_visits = move_stats[move]
                 new_visits = old_visits + visits
@@ -321,13 +426,10 @@ def parallel_mcts(root_state, time_limit=9.25, num_workers=4, max_iterations=120
             else:
                 move_stats[move] = value, visits
     if move_stats:
-        total_visits = sum(visits for _, visits in move_stats.values())
+        # total_visits = sum(visits for _, visits in move_stats.values())
         best_move = max(
             move_stats.keys(),
-            key=lambda m: (
-                move_stats[m][0] +
-                (2 * (math.log(total_visits) / move_stats[m][1])) ** 0.5
-            )
+            key=lambda m: move_stats[m][0],
         )
     else:
         move_counts = {}

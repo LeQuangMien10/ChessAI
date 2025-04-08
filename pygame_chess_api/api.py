@@ -423,7 +423,7 @@ class Pawn(Piece):
                 allowed_moves.append(cur_move)
 
         # En passant move
-        if (self.color == self.WHITE and self.pos[1] == 3) or (self.color == self.BLACK and self.pos[1] == 4):
+        if ((self.color == self.WHITE and self.pos[1] == 3) or (self.color == self.BLACK and self.pos[1] == 4)) and len(self.board.move_history) > 0:
             last_move_history = self.board.move_history[-1]
             piece_of_last_move = last_move_history["piece"]
             en_passant_pos = (piece_of_last_move.pos[0], piece_of_last_move.pos[1] + (
