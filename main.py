@@ -14,7 +14,7 @@ if __name__ == "__main__":  # Đảm bảo mã khởi tạo game nằm trong kh�
     board = Board()
 
     # Add Piece.WHITE để thêm người chơi trắng, Piece.BLACK để thêm người chơi đen
-    gui = Gui(board, (Piece.WHITE, ))
+    gui = Gui(board, (Piece.BLACK, ))
 
     gui.run_pygame_loop(function_for_ai)
 '''function_for_ai handles AI turns'''
