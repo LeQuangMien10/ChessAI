@@ -60,7 +60,11 @@ def evaluate_board(board: Board) -> float:
 def minimax(board: Board, depth: int, alpha: float, beta: float, maximizing_player: bool) -> float:
     """Minimax algorithm with alpha-beta pruning"""
     if depth == 0 or board.game_ended:
-        return -evaluate_board(board)
+        evaluation = evaluate_board(board)
+        if not maximizing_player:
+            return -evaluation
+        else:
+            return evaluation
     
     if maximizing_player:
         max_eval = float('-inf')

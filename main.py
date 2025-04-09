@@ -17,7 +17,7 @@ def create_board_from_pieces(pieces_data):
 
 def function_for_ai(board: Board) -> None:
     """Function to be called by the GUI for AI moves"""
-    piece, move = get_best_move(board, depth=3)  # You can adjust the depth here
+    piece, move = get_best_move(board, depth=2)  # You can adjust the depth here
     print(f"AI move: {piece} to {move.target}")
     piece.move(move)
 
