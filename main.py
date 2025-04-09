@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # )
 
     # Add Piece.WHITE để thêm người chơi trắng, Piece.BLACK để thêm người chơi đen
-    gui = Gui(board, (Piece.BLACK, ))
+    gui = Gui(board, (Piece.WHITE, ))
 
     gui.run_pygame_loop(function_for_ai)
 '''function_for_ai handles AI turns'''

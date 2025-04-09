@@ -60,7 +60,7 @@ def evaluate_board(board: Board) -> float:
 def minimax(board: Board, depth: int, alpha: float, beta: float, maximizing_player: bool) -> float:
     """Minimax algorithm with alpha-beta pruning"""
     if depth == 0 or board.game_ended:
-        return evaluate_board(board)
+        return -evaluate_board(board)
     
     if maximizing_player:
         max_eval = float('-inf')
@@ -82,7 +82,7 @@ def minimax(board: Board, depth: int, alpha: float, beta: float, maximizing_play
                     # Recursive call
                     eval = minimax(new_board, depth - 1, alpha, beta, False)
                     max_eval = max(max_eval, eval)
-                    alpha = max(alpha, eval)
+                    alpha = max(alpha, max_eval)
                     if beta <= alpha:
                         break
         return max_eval
@@ -106,7 +106,7 @@ def minimax(board: Board, depth: int, alpha: float, beta: float, maximizing_play
                     # Recursive call
                     eval = minimax(new_board, depth - 1, alpha, beta, True)
                     min_eval = min(min_eval, eval)
-                    beta = min(beta, eval)
+                    beta = min(beta, min_eval)
                     if beta <= alpha:
                         break
         return min_eval
@@ -146,9 +146,3 @@ def get_best_move(board: Board, depth: int) -> tuple[Piece, Move]:
     print(f"Thời gian tính toán: {elapsed_time:.2f} giây")
 
     return best_piece, best_move
-
-def function_for_ai(board: Board) -> None:
-    """Function to be called by the GUI for AI moves"""
-    piece, move = get_best_move(board, depth=3)  # You can adjust the depth here
-    print(f"AI move: {piece} to {move.target}")
-    piece.move(move) 
