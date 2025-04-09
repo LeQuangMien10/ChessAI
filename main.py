@@ -1,12 +1,7 @@
 import pygame
 from pygame_chess_api.api import Board, Piece, Queen, King, Bishop, Rook, Pawn, Knight
 from pygame_chess_api.render import Gui
-from mcts import parallel_mcts
-
-def function_for_ai(board:Board):
-    piece, move = parallel_mcts(board, num_workers=8)
-    print(piece, move)
-    piece.move(move)
+from minimax import get_best_move
 
 """Tạo bàn cờ từ danh sách các quân cờ"""
 def create_board_from_pieces(pieces_data):
@@ -19,6 +14,12 @@ def create_board_from_pieces(pieces_data):
     # Khởi tạo các biến cần thiết cho bàn cờ
     custom_board._init_vars()
     return custom_board
+
+def function_for_ai(board: Board) -> None:
+    """Function to be called by the GUI for AI moves"""
+    piece, move = get_best_move(board, depth=3)  # You can adjust the depth here
+    print(f"AI move: {piece} to {move.target}")
+    piece.move(move)
 
 if __name__ == "__main__":
     pygame.init()
