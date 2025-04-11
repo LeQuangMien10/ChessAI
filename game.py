@@ -83,12 +83,12 @@ def choose_promotion_pygame(screen, colorTurn):
     button_rects = []
     x_offset = 105
     y_offset = 155
-    for key, (piece, img_path) in choices.items():
+    for key, (piece_, img_path) in choices.items():
         img = pygame.image.load(img_path)
         img = pygame.transform.scale(img, (50, 50))  # Điều chỉnh kích thước ảnh
 
         btn_rect = screen.blit(img, (x_offset, y_offset))
-        button_rects.append((btn_rect, piece))
+        button_rects.append((btn_rect, piece_))
 
         x_offset += 65  # Dịch chuyển ảnh tiếp theo
 
@@ -101,6 +101,6 @@ def choose_promotion_pygame(screen, colorTurn):
                 pygame.quit()
                 exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                for btn_rect, piece in button_rects:
+                for btn_rect, piece_ in button_rects:
                     if btn_rect.collidepoint(event.pos):
-                        return piece
+                        return piece_
