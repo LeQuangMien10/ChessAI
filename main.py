@@ -39,14 +39,14 @@ while running:
                     draw_pieces(screen, board)
 
                     pygame.display.flip()
-                    selected_square = None
-                    legal_moves = []
                     pygame.event.pump()
 
                     if not board.is_game_over():
                         best_move = get_best_move(board, depth=3)
                         if best_move:
                             board.push(best_move)
+                selected_square = None
+                legal_moves = []
 
 
 pygame.quit()
