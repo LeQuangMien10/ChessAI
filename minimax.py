@@ -13,12 +13,26 @@ def evaluate_board(board_):
 
     evaluation = 0
 
+    # 1. Trừ điểm nếu bị chiếu
+    if board_.is_check():
+        evaluation -= 30
+
+    # 2. Trung tâm bàn cờ
+    center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
+    for square in center_squares:
+        piece = board_.piece_at(square)
+        if piece:
+            if piece.color == chess.WHITE:
+                evaluation += 10
+            else:
+                evaluation -= 10
+
+    # 3. Giá trị + bonus vị trí
     for square in chess.SQUARES:
         piece = board_.piece_at(square)
         if piece:
             value = config.PIECE_VALUES[piece.piece_type]
 
-            positional_bonus = 0
             index = square if piece.color == chess.WHITE else chess.square_mirror(square)
 
             if piece.piece_type == chess.PAWN:
@@ -33,11 +47,31 @@ def evaluate_board(board_):
                 positional_bonus = config.QUEEN_POSITION_BONUS[7 - index // 8][index % 8]
             elif piece.piece_type == chess.KING:
                 positional_bonus = config.KING_POSITION_BONUS[7 - index // 8][index % 8]
+            else:
+                positional_bonus = 0
 
             total = value + positional_bonus
             evaluation += total if piece.color == chess.WHITE else -total
 
+            # 4. Phạt quân treo
+            attackers = board_.attackers(not piece.color, square)
+            defenders = board_.attackers(piece.color, square)
+            if attackers and not defenders:
+                penalty = value // 2
+                evaluation -= penalty if piece.color == chess.WHITE else -penalty
+
+    # 5. Thưởng bảo vệ vua
+    for color in [chess.WHITE, chess.BLACK]:
+        king_square = board_.king(color)
+        if king_square:
+            defenders = len(board_.attackers(color, king_square))
+            if color == chess.WHITE:
+                evaluation += defenders * 5
+            else:
+                evaluation -= defenders * 5
+
     return evaluation
+
 
 def minimax(board, depth, alpha, beta, is_maximizing):
     if depth == 0 or board.is_game_over():
@@ -49,7 +83,7 @@ def minimax(board, depth, alpha, beta, is_maximizing):
 
     if is_maximizing:
         max_value = -float('inf')
-        for move in order_moves(board):
+        for move in order_moves(board):  # Sử dụng order_moves đã tích hợp is_important_move
             board.push(move)
             evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
             board.pop()
@@ -61,7 +95,7 @@ def minimax(board, depth, alpha, beta, is_maximizing):
         return max_value
     else:
         min_value = float('inf')
-        for move in order_moves(board):
+        for move in order_moves(board):  # Sử dụng order_moves đã tích hợp is_important_move
             board.push(move)
             evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
             board.pop()
@@ -95,11 +129,51 @@ def get_best_move(board, depth=3):
     return best_move
 
 
+def is_important_move(board, move):
+    # Nước chiếu
+    if board.gives_check(move):
+        return True
+
+    # Nước phong cấp
+    if move.promotion is not None:
+        return True
+
+    # Nước ăn quân
+    if board.is_capture(move):
+        captured_piece = board.piece_at(move.to_square)
+        moving_piece = board.piece_at(move.from_square)
+        if captured_piece and moving_piece:
+            captured_value = config.PIECE_VALUES[captured_piece.piece_type]
+            moving_value = config.PIECE_VALUES[moving_piece.piece_type]
+            if captured_value >= moving_value:
+                return True
+
+    # Nước đe dọa quân mạnh
+    board.push(move)
+    attacked_squares = board.attacks(move.to_square)
+    for sq in attacked_squares:
+        target_piece = board.piece_at(sq)
+        if target_piece and target_piece.color != board.turn:
+            value = config.PIECE_VALUES[target_piece.piece_type]
+            if value >= config.PIECE_VALUES[chess.ROOK]:
+                board.pop()
+                return True
+    board.pop()
+
+    return False
+
+
 def order_moves(board):
     moves = list(board.legal_moves)
 
     def move_score(move):
         score = 0
+
+        # Ưu tiên cao nếu nước đi được đánh giá là quan trọng bởi is_important_move
+        if is_important_move(board, move):
+            score += 1000  # Giá trị lớn để đảm bảo nước quan trọng đứng đầu
+
+        # Logic hiện có: ưu tiên nước ăn quân
         if board.is_capture(move):
             captured = board.piece_at(move.to_square)
             attacker = board.piece_at(move.from_square)
@@ -108,15 +182,11 @@ def order_moves(board):
             else:
                 score += 50  # Ưu tiên nước bắt thường
 
+        # Logic hiện có: ưu tiên nước phong cấp
         if move.promotion:
-            score += 90  # Ưu tiên nước phong cấp
+            score += 90
 
         return -score  # Đảo dấu để sort tăng → highest score trước
 
     moves.sort(key=move_score)
     return moves
-
-
-# board = chess.Board()
-# print(evaluate_board(board))
-# print(board)
