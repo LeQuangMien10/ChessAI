@@ -49,9 +49,9 @@ def minimax(board, depth, alpha, beta, is_maximizing):
 
     if is_maximizing:
         max_value = -float('inf')
-        for move in board.legal_moves:
+        for move in order_moves(board):
             board.push(move)
-            evaluation = minimax(board, depth - 1, alpha, beta, is_maximizing)
+            evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
             board.pop()
 
             max_value = max(max_value, evaluation)
@@ -61,9 +61,9 @@ def minimax(board, depth, alpha, beta, is_maximizing):
         return max_value
     else:
         min_value = float('inf')
-        for move in board.legal_moves:
+        for move in order_moves(board):
             board.push(move)
-            evaluation = minimax(board, depth - 1, alpha, beta, is_maximizing)
+            evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
             board.pop()
 
             min_value = min(min_value, evaluation)
@@ -71,6 +71,7 @@ def minimax(board, depth, alpha, beta, is_maximizing):
             if beta <= alpha:
                 break
         return min_value
+
 
 def get_best_move(board, depth=3):
     start_time = time.time()
@@ -92,6 +93,28 @@ def get_best_move(board, depth=3):
     print(f"Time: {elapsed_time: .2f} seconds")
 
     return best_move
+
+
+def order_moves(board):
+    moves = list(board.legal_moves)
+
+    def move_score(move):
+        score = 0
+        if board.is_capture(move):
+            captured = board.piece_at(move.to_square)
+            attacker = board.piece_at(move.from_square)
+            if captured and attacker:
+                score += 10 * config.PIECE_VALUES[captured.piece_type] - config.PIECE_VALUES[attacker.piece_type]
+            else:
+                score += 50  # Ưu tiên nước bắt thường
+
+        if move.promotion:
+            score += 90  # Ưu tiên nước phong cấp
+
+        return -score  # Đảo dấu để sort tăng → highest score trước
+
+    moves.sort(key=move_score)
+    return moves
 
 
 # board = chess.Board()
