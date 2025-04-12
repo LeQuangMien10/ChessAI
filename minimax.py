@@ -1,7 +1,5 @@
 import time
 
-import chess
-
 import config
 from config import *
 
@@ -75,11 +73,7 @@ def evaluate_board(board_):
 
 def minimax(board, depth, alpha, beta, is_maximizing):
     if depth == 0 or board.is_game_over():
-        evaluation = evaluate_board(board)
-        if not is_maximizing:
-            return -evaluation
-        else:
-            return evaluation
+        return -evaluate_board(board)
 
     if is_maximizing:
         max_value = -float('inf')
@@ -113,7 +107,7 @@ def get_best_move(board, depth=3):
     best_move = None
     best_value = -float('inf')
 
-    for move in board.legal_moves:
+    for move in order_moves(board):
         board.push(move)
         evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), False)
         board.pop()
@@ -184,7 +178,7 @@ def order_moves(board):
 
         # Logic hiện có: ưu tiên nước phong cấp
         if move.promotion:
-            score += 90
+            score += 900
 
         return -score  # Đảo dấu để sort tăng → highest score trước
 

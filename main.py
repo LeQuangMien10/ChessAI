@@ -11,6 +11,7 @@ board = chess.Board()
 selected_square = None
 legal_moves = []
 
+clock = pygame.time.Clock()
 running = True
 
 
@@ -31,6 +32,7 @@ def update_screen():
 
 
 while running:
+    clock.tick(60)
     update_screen()
 
     for event in pygame.event.get():
