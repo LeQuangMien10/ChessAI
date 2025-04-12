@@ -5,3 +5,4 @@
 8:07 PM 12/4/2025: Tránh hòa do lặp nước khi đang thắng
 9:16 PM 12/4/2025: Thêm menu lựa chọn chế độ
 9:32 PM 12/4/2025: Thêm logic bị thiếu cho menu
+10:08 PM 12/4/2025: Thêm logic kết thúc game

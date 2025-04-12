@@ -1,4 +1,4 @@
-from getpass import fallback_getpass
+import pygame.time
 
 from menu import *
 from game import *
@@ -29,6 +29,7 @@ running = True
 
 
 def handle_game_end():
+    global running
     update_screen()
     result = "Checkmate" if board.is_checkmate() else "Draw"
     font = pygame.font.Font(None, 32)
@@ -36,6 +37,7 @@ def handle_game_end():
     screen.blit(text, (BOARD_SIZE // 2 - 50, BOARD_SIZE // 2))
     pygame.display.flip()
     pygame.time.wait(2000)
+    running = False
 
 
 def update_screen():
