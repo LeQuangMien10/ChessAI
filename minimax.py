@@ -1,4 +1,5 @@
 import time
+from tokenize import String
 
 import config
 from config import *
@@ -111,6 +112,18 @@ def get_best_move(board, depth=3):
     best_value = -float('inf')
 
     for move in order_moves(board):
+        # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 5 lần lặp
+        if is_threefold_repetition_if_move(board, move):
+            white_score, black_score = material_score(board)
+            print("white: " + str(white_score))
+            print("black: " + str(black_score))
+
+            if black_score >= white_score + 100:
+                continue  # Đen đang lợi thế → tránh hòa
+            elif black_score <= white_score - 200:
+                return move  # Đen thua nặng → chấp nhận hòa
+
+        # Đánh giá nước đi thông qua minimax
         board.push(move)
         evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), False)
         board.pop()
@@ -118,7 +131,6 @@ def get_best_move(board, depth=3):
         if evaluation > best_value:
             best_value = evaluation
             best_move = move
-
 
     elapsed_time = time.time() - start_time
     print(f"Time: {elapsed_time: .2f} seconds")
@@ -187,3 +199,25 @@ def order_moves(board):
 
     moves.sort(key=move_score)
     return moves
+
+# Hàm tránh bị hòa khi đang có lợi thế
+def is_threefold_repetition_if_move(board, move):
+    board_copy = board.copy()
+    board_copy.push(move)
+    return board_copy.is_repetition(5) #3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
+
+#Hàm tính giá trị quân còn lại trên bàn
+def material_score(board):
+    white_score = 0
+    black_score = 0
+
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece:
+            value = config.PIECE_VALUES[piece.piece_type]
+            if piece.color == chess.WHITE:
+                white_score += value
+            else:
+                black_score += value
+
+    return white_score, black_score
