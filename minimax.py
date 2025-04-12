@@ -1,14 +1,30 @@
+import pickle
 import time
-from tokenize import String
+import os
 
 import chess
 
 import config
 from config import *
+from transposition_table import compute_zorbist_hash
+
+# Load transposition table nếu có
+if os.path.exists(TRANSPOSITION_FILE):
+    with open(TRANSPOSITION_FILE, 'rb') as f:
+        transposition_table = pickle.load(f)
+else:
+    transposition_table = {}
+
+def save_transposition_table(min_depth=2):
+    filtered_table = {
+        k: v for k, v in transposition_table.items() if v['depth'] >= min_depth
+    }
+    with open(TRANSPOSITION_FILE, 'wb') as f:
+        pickle.dump(filtered_table, f)
 
 def evaluate_board(board_):
     if board_.is_checkmate():
-        return float('inf') if board_.turn == chess.WHITE else -float('inf')
+        return -float('inf') if DEFAULT_DEPTH % 2 == 1 else float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material():
         return 0
 
@@ -23,7 +39,7 @@ def evaluate_board(board_):
     for square in center_squares:
         piece = board_.piece_at(square)
         if piece:
-            if piece.color == chess.WHITE:
+            if piece.color == board_.turn:
                 evaluation += 10
             else:
                 evaluation -= 10
@@ -52,21 +68,21 @@ def evaluate_board(board_):
                 positional_bonus = 0
 
             total = value + positional_bonus
-            evaluation += total if piece.color == chess.WHITE else -total
+            evaluation += total if piece.color == board_.turn else -total
 
             # 4. Phạt quân treo
             attackers = board_.attackers(not piece.color, square)
             defenders = board_.attackers(piece.color, square)
             if attackers and not defenders:
                 penalty = value // 2
-                evaluation -= penalty if piece.color == chess.WHITE else -penalty
+                evaluation -= penalty if piece.color == board_.turn else -penalty
 
     # 5. Thưởng bảo vệ vua
     for color in [chess.WHITE, chess.BLACK]:
         king_square = board_.king(color)
         if king_square:
             defenders = len(board_.attackers(color, king_square))
-            if color == chess.WHITE:
+            if color == board_.turn:
                 evaluation += defenders * 5
             else:
                 evaluation -= defenders * 5
@@ -75,36 +91,40 @@ def evaluate_board(board_):
 
 
 def minimax(board, depth, alpha, beta, is_maximizing):
+    key = compute_zorbist_hash(board)
+    if key in transposition_table and transposition_table[key]['depth'] >= depth:
+        return transposition_table[key]['value']
+
     if depth == 0 or board.is_game_over():
-        if ((board.turn == chess.WHITE and DEFAULT_DEPTH % 2 == 1) or
-                (board.turn == chess.BLACK and DEFAULT_DEPTH % 2 == 0)):
-            return -evaluate_board(board)
-        else:
-            return evaluate_board(board)
+        value = -evaluate_board(board) if DEFAULT_DEPTH % 2 == 1 else evaluate_board(board)
+        transposition_table[key] = {'value': value, 'depth': depth}
+        return value
 
     if is_maximizing:
         max_value = -float('inf')
-        for move in order_moves(board):  # Sử dụng order_moves đã tích hợp is_important_move
+        for move in order_moves(board):
             board.push(move)
             evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
             board.pop()
 
             max_value = max(max_value, evaluation)
-            alpha = max(alpha, evaluation)
+            alpha = max(alpha, max_value)
             if alpha >= beta:
                 break
+        transposition_table[key] = {'value': max_value, 'depth': depth}
         return max_value
     else:
         min_value = float('inf')
-        for move in order_moves(board):  # Sử dụng order_moves đã tích hợp is_important_move
+        for move in order_moves(board):
             board.push(move)
             evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
             board.pop()
 
             min_value = min(min_value, evaluation)
-            beta = min(beta, evaluation)
+            beta = min(beta, min_value)
             if beta <= alpha:
                 break
+        transposition_table[key] = {'value': min_value, 'depth': depth}
         return min_value
 
 
@@ -112,25 +132,44 @@ def get_best_move(board, depth=3):
     start_time = time.time()
 
     best_move = None
+    # if board.turn == chess.WHITE:
+    #     best_value = -float('inf')
+    #     is_maximizing = True
+    # else:
+    #     best_value = float('inf')
+    #     is_maximizing = False
     best_value = -float('inf')
+    is_maximizing = True
 
     for move in order_moves(board):
-        # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 5 lần lặp
+        # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 3 lần lặp
         if is_threefold_repetition_if_move(board, move):
             white_score, black_score = material_score(board)
             print("white: " + str(white_score))
             print("black: " + str(black_score))
 
-            if black_score >= white_score + 100:
-                continue  # Đen đang lợi thế → tránh hòa
-            elif black_score <= white_score - 200:
-                return move  # Đen thua nặng → chấp nhận hòa
+            if board.turn == chess.BLACK:
+                if black_score >= white_score + 100:
+                    continue  # Đen đang lợi thế → tránh hòa
+                elif black_score <= white_score - 200:
+                    return move  # Đen thua nặng → chấp nhận hòa
+            else:
+                if white_score >= black_score + 100:
+                    continue
+                elif white_score <= black_score - 200:
+                    return move
 
         # Đánh giá nước đi thông qua minimax
         board.push(move)
-        evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), False)
+        evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
         board.pop()
 
+        # if board.turn == chess.WHITE and evaluation > best_value:
+        #     best_value = evaluation
+        #     best_move = move
+        # elif board.turn == chess.BLACK and evaluation < best_value:
+        #     best_value = evaluation
+        #     best_move = move
         if evaluation > best_value:
             best_value = evaluation
             best_move = move
@@ -207,7 +246,7 @@ def order_moves(board):
 def is_threefold_repetition_if_move(board, move):
     board_copy = board.copy()
     board_copy.push(move)
-    return board_copy.is_repetition(5) #3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
+    return board_copy.is_repetition(3) #3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
 
 #Hàm tính giá trị quân còn lại trên bàn
 def material_score(board):

@@ -7,3 +7,4 @@
 9:32 PM 12/4/2025: Thêm logic bị thiếu cho menu
 10:08 PM 12/4/2025: Thêm logic kết thúc game
 10:45 PM 12/4/2025: Sửa lỗi depth chẵn lần 2
+1:52 AM 13/4/2025: Sửa lỗi depth chẵn lần 3

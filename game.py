@@ -40,12 +40,12 @@ def get_square_from_mouse(pos):
 
 def promote_pawn(board, move, screen):
     """Kiểm tra nếu quân tốt đi đến hàng cuối và yêu cầu phong cấp bằng Pygame."""
-    piece = board.piece_at(move.from_square)
+    piece_ = board.piece_at(move.from_square)
 
-    if piece and piece.piece_type == chess.PAWN:
-        last_rank = 7 if piece.color == chess.WHITE else 0  # Lấy hàng cuối cùng cho từng màu
+    if piece_ and piece_.piece_type == chess.PAWN:
+        last_rank = 7 if piece_.color == chess.WHITE else 0  # Lấy hàng cuối cùng cho từng màu
         if chess.square_rank(move.to_square) == last_rank:  # Kiểm tra tốt đã đến hàng cuối chưa
-            color = "white" if piece.color == chess.WHITE else "black"
+            color = "white" if piece_.color == chess.WHITE else "black"
             promotion_choice = choose_promotion_pygame(screen, color)
             move.promotion = promotion_choice
 
