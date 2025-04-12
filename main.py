@@ -1,4 +1,4 @@
-from config import *
+from menu import *
 from game import *
 from minimax import get_best_move
 
@@ -6,6 +6,8 @@ pygame.init()
 
 screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
 pygame.display.set_caption("Chess")
+
+game_mode = get_game_mode(screen)
 
 board = chess.Board()
 selected_square = None
@@ -32,20 +34,18 @@ def update_screen():
     pygame.display.flip()
 
 
-while running:
-    clock.tick(60)
-    update_screen()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
+def player_vs_ai():
+    global running, selected_square, legal_moves
+    for event_ in pygame.event.get():
+        if event_.type == pygame.QUIT:
             running = False
 
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            square = get_square_from_mouse(event.pos)
+        elif event_.type == pygame.MOUSEBUTTONDOWN:
+            square = get_square_from_mouse(event_.pos)
 
             if selected_square is None:
-                piece = board.piece_at(square)
-                if piece and piece.color == board.turn:
+                piece_ = board.piece_at(square)
+                if piece_ and piece_.color == board.turn:
                     selected_square = square
                     legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
             else:
@@ -63,8 +63,87 @@ while running:
                 selected_square = None
                 legal_moves = []
 
-    if board.is_game_over():
-        handle_game_end()
-        running = False
+def ai_vs_player():
+    global running, selected_square, legal_moves
+    if board.turn == chess.WHITE and not board.is_game_over():
+        best_move = get_best_move(board, depth=3)
+        if best_move:
+            board.push(best_move)
+
+    for event_ in pygame.event.get():
+        if event_.type == pygame.QUIT:
+            running = False
+
+        elif event_.type == pygame.MOUSEBUTTONDOWN:
+            square = get_square_from_mouse(event_.pos)
+
+            if selected_square is None:
+                piece_ = board.piece_at(square)
+                if piece_ and piece_.color == board.turn:
+                    selected_square = square
+                    legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+            else:
+                move = chess.Move(selected_square, square)
+                promote_pawn(board, move, screen)
+                if move in board.legal_moves:
+                    board.push(move)
+                    update_screen()
+
+                selected_square = None
+                legal_moves = []
+
+def ai_vs_ai():
+    global running
+    for event_ in pygame.event.get():
+        if event_.type == pygame.QUIT:
+            running = False
+
+    best_move = get_best_move(board, depth=3)
+    if best_move:
+        board.push(best_move)
+        update_screen()
+
+        if not board.is_game_over():
+            best_move = get_best_move(board, depth=3)
+            if best_move:
+                board.push(best_move)
+
+def player_vs_player():
+    global running, selected_square, legal_moves
+    for event_ in pygame.event.get():
+        if event_.type == pygame.QUIT:
+            running = False
+
+        elif event_.type == pygame.MOUSEBUTTONDOWN:
+            square = get_square_from_mouse(event_.pos)
+
+            if selected_square is None:
+                piece_ = board.piece_at(square)
+                if piece_ and piece_.color == board.turn:
+                    selected_square = square
+                    legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+            else:
+                move = chess.Move(selected_square, square)
+                promote_pawn(board, move, screen)
+                if move in board.legal_moves:
+                    board.push(move)
+                    update_screen()
+
+                selected_square = None
+                legal_moves = []
+
+
+
+while running:
+    clock.tick(60)
+    update_screen()
+    if game_mode == TWO_PLAYERS:
+        player_vs_player()
+    elif game_mode == TWO_AIS:
+        ai_vs_ai()
+    elif game_mode == PLAYER_VS_AI:
+        player_vs_ai()
+    elif game_mode == AI_VS_PLAYER:
+        ai_vs_player()
 
 pygame.quit()

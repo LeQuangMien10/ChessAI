@@ -73,7 +73,10 @@ def evaluate_board(board_):
 
 def minimax(board, depth, alpha, beta, is_maximizing):
     if depth == 0 or board.is_game_over():
-        return -evaluate_board(board)
+        if board.turn == chess.WHITE:
+            return -evaluate_board(board)
+        else:
+            return evaluate_board(board)
 
     if is_maximizing:
         max_value = -float('inf')

@@ -11,6 +11,13 @@ WHITE = (238, 238, 210)
 BLACK = (118, 150, 86)
 HIGHLIGHT = (186, 202, 68)
 
+# Menu
+TWO_PLAYERS = 0
+TWO_AIS = 1
+PLAYER_VS_AI = 2
+AI_VS_PLAYER = 3
+
+
 PAWN_POSITION_BONUS = [
     [ 0,  0,  0,  0,  0,  0,  0,  0],
     [50, 50, 50, 50, 50, 50, 50, 50],
