@@ -1,3 +1,4 @@
 8:41 PM 11/4/2025: Thêm Text hiển thị kết thúc game
 10:40 PM 11/4/2025: Thêm order_move, is_important_move để bổ trợ order_move, thêm cơ chế cho evaluate_board (chiếm tt, quân bị treo, bảo kê vua)
 1:12 PM 12/4/2025: Fix lỗi depth chẵn, thêm fps
+3:14 PM 12/4/2025: Checkmate được hiển thị sau move
