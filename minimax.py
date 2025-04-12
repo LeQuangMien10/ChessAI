@@ -1,12 +1,14 @@
 import time
 from tokenize import String
 
+import chess
+
 import config
 from config import *
 
 def evaluate_board(board_):
     if board_.is_checkmate():
-        return -float('inf') if board_.turn else float('inf')
+        return float('inf') if board_.turn == chess.WHITE else -float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material():
         return 0
 
@@ -74,7 +76,8 @@ def evaluate_board(board_):
 
 def minimax(board, depth, alpha, beta, is_maximizing):
     if depth == 0 or board.is_game_over():
-        if board.turn == chess.WHITE:
+        if ((board.turn == chess.WHITE and DEFAULT_DEPTH % 2 == 1) or
+                (board.turn == chess.BLACK and DEFAULT_DEPTH % 2 == 0)):
             return -evaluate_board(board)
         else:
             return evaluate_board(board)

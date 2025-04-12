@@ -69,9 +69,7 @@ def player_vs_ai():
                     update_screen()
 
                     if not board.is_game_over():
-                        best_move = get_best_move(board, depth=3)
-                        if best_move:
-                            board.push(best_move)
+                        handle_ai_turn()
 
                 selected_square = None
                 legal_moves = []
@@ -83,9 +81,7 @@ def player_vs_ai():
 def ai_vs_player():
     global running, selected_square, legal_moves
     if board.turn == chess.WHITE and not board.is_game_over():
-        best_move = get_best_move(board, depth=3)
-        if best_move:
-            board.push(best_move)
+        handle_ai_turn()
 
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
@@ -113,21 +109,23 @@ def ai_vs_player():
             break
 
 
+def handle_ai_turn():
+    best_move = get_best_move(board, depth=DEFAULT_DEPTH)
+    if best_move:
+        board.push(best_move)
+
+
 def ai_vs_ai():
     global running
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
 
-    best_move = get_best_move(board, depth=3)
-    if best_move:
-        board.push(best_move)
-        update_screen()
+    handle_ai_turn()
 
-        if not board.is_game_over():
-            best_move = get_best_move(board, depth=3)
-            if best_move:
-                board.push(best_move)
+    if not board.is_game_over():
+        update_screen()
+        handle_ai_turn()
     if board.is_game_over():
         handle_game_end()
         running = False

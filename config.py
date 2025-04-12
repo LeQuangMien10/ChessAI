@@ -17,6 +17,8 @@ TWO_AIS = 1
 PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
+# Game
+DEFAULT_DEPTH = 2
 
 PAWN_POSITION_BONUS = [
     [ 0,  0,  0,  0,  0,  0,  0,  0],
