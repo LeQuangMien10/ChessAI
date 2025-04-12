@@ -1,3 +1,5 @@
+from getpass import fallback_getpass
+
 from menu import *
 from game import *
 from minimax import get_best_move
@@ -9,13 +11,13 @@ pygame.display.set_caption("Chess")
 
 game_mode = get_game_mode(screen)
 
-#Test tránh hòa do LẶP NƯỚC 1 (2 xe vs vua)
+# Test tránh hòa do LẶP NƯỚC 1 (2 xe vs vua)
 fen_string_loop5 = "8/8/8/8/1k6/8/r1r5/K7 w - - 0 1"
-#board = chess.Board(fen_string)
+# board = chess.Board(fen_string_loop5)
 
-#Test tránh hòa do LẮP NƯỚC 2 (vua vs Mã+Xe)
+# Test tránh hòa do LẮP NƯỚC 2 (vua vs Mã+Xe)
 fen_string2 = "1k6/8/8/8/8/KN6/8/2R5 w - - 0 1"
-#board = chess.Board(fen_string2)
+# board = chess.Board(fen_string2)
 
 
 board = chess.Board()
@@ -71,6 +73,10 @@ def player_vs_ai():
 
                 selected_square = None
                 legal_moves = []
+        if board.is_game_over():
+            handle_game_end()
+            break
+
 
 def ai_vs_player():
     global running, selected_square, legal_moves
@@ -100,6 +106,10 @@ def ai_vs_player():
 
                 selected_square = None
                 legal_moves = []
+        if board.is_game_over():
+            handle_game_end()
+            break
+
 
 def ai_vs_ai():
     global running
@@ -116,6 +126,10 @@ def ai_vs_ai():
             best_move = get_best_move(board, depth=3)
             if best_move:
                 board.push(best_move)
+    if board.is_game_over():
+        handle_game_end()
+        running = False
+
 
 def player_vs_player():
     global running, selected_square, legal_moves
@@ -140,7 +154,9 @@ def player_vs_player():
 
                 selected_square = None
                 legal_moves = []
-
+        if board.is_game_over():
+            handle_game_end()
+            break
 
 
 while running:
