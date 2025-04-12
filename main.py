@@ -3,6 +3,7 @@ import pygame.time
 from menu import *
 from game import *
 from minimax import get_best_move
+from minimax import save_transposition_table
 
 pygame.init()
 
@@ -113,6 +114,8 @@ def handle_ai_turn():
     best_move = get_best_move(board, depth=DEFAULT_DEPTH)
     if best_move:
         board.push(best_move)
+    else:
+        print("No move")
 
 
 def ai_vs_ai():
@@ -170,5 +173,8 @@ while running:
         player_vs_ai()
     elif game_mode == AI_VS_PLAYER:
         ai_vs_player()
+    save_transposition_table()
 
 pygame.quit()
+
+# TODO: End-game specific evaluation

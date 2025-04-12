@@ -8,3 +8,4 @@
 10:08 PM 12/4/2025: Thêm logic kết thúc game
 10:45 PM 12/4/2025: Sửa lỗi depth chẵn lần 2
 1:52 AM 13/4/2025: Sửa lỗi depth chẵn lần 3
+2:34 AM 13/4/2025: Thêm transposition_table

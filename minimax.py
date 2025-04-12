@@ -15,12 +15,28 @@ if os.path.exists(TRANSPOSITION_FILE):
 else:
     transposition_table = {}
 
-def save_transposition_table(min_depth=2):
+def save_transposition_table(min_depth=3):
+    # Đọc bảng cũ nếu có
+    old_table = {}
+    if os.path.exists(TRANSPOSITION_FILE):
+        with open(TRANSPOSITION_FILE, "rb") as f:
+            old_table = pickle.load(f)
+
+    # Gộp bảng cũ và mới, ưu tiên entry có depth cao hơn
+    merged_table = old_table.copy()
+    for k, v in transposition_table.items():
+        if (k not in merged_table) or (v["depth"] > merged_table[k]["depth"]):
+            merged_table[k] = v
+
+    # Lọc theo độ sâu
     filtered_table = {
-        k: v for k, v in transposition_table.items() if v['depth'] >= min_depth
+        k: v for k, v in merged_table.items() if v["depth"] >= min_depth
     }
-    with open(TRANSPOSITION_FILE, 'wb') as f:
+
+    # Ghi đè sau khi merge
+    with open(TRANSPOSITION_FILE, "wb") as f:
         pickle.dump(filtered_table, f)
+
 
 def evaluate_board(board_):
     if board_.is_checkmate():
@@ -32,7 +48,7 @@ def evaluate_board(board_):
 
     # 1. Trừ điểm nếu bị chiếu
     if board_.is_check():
-        evaluation -= 30
+        evaluation -= 20
 
     # 2. Trung tâm bàn cờ
     center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
