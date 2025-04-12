@@ -16,6 +16,7 @@ running = True
 
 
 def handle_game_end():
+    update_screen()
     result = "Checkmate" if board.is_checkmate() else "Draw"
     font = pygame.font.Font(None, 32)
     text = font.render(result, True, (0, 0, 0))
