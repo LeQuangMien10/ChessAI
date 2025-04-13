@@ -202,7 +202,7 @@ def count_pieces(board):
 
 def evaluate_with_tablebase(board):
     import chess.syzygy
-    with chess.syzygy.open_tablebase("D:/3-4-5") as tablebase:
+    with chess.syzygy.open_tablebase("3-4-5") as tablebase:
         try:
             # Đếm số quân đang còn trên bàn
             piece_count = len(board.piece_map())
