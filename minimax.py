@@ -15,6 +15,7 @@ if os.path.exists(TRANSPOSITION_FILE):
 else:
     transposition_table = {}
 
+
 def save_transposition_table(min_depth=3):
     # Đọc bảng cũ nếu có
     old_table = {}
@@ -38,17 +39,58 @@ def save_transposition_table(min_depth=3):
         pickle.dump(filtered_table, f)
 
 
+def manhattan_distance(square1, square2):
+    """
+    Tính khoảng cách manhattan giữa hai ô
+    :param square1: ô thứ nhất
+    :param square2: ô thứ hai
+    :return: khoảng cách manhattan
+    """
+    file1, rank1 = chess.square_file(square1), chess.square_rank(square1)
+    file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
+    return abs(file1 - file2) + abs(rank1 - rank2)
+
+def mop_up_evaluation(board):
+    """
+    Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
+    :param board: bàn cờ
+    :return: giá trị mop-up
+    """
+    evaluation = 0
+    # Vị trí vua
+    king_square = board.king(board.turn)
+    opponent_king_square = board.king(not board.turn)
+    if king_square and opponent_king_square:
+        # 1. Thưởng vua đối phương xa trung tâm
+        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][opponent_king_square % 8]
+        center_bonus = 4.7 * center_manhattan_distance
+        evaluation += center_bonus
+
+        # 2. Thưởng hai vua gần nhau
+        kings_distance = manhattan_distance(king_square, opponent_king_square)
+        king_proximity_bonus = 1.6 * (14 - kings_distance)
+        evaluation += king_proximity_bonus
+
+    return evaluation
+
 def evaluate_board(board_):
+    """
+    Đánh giá bàn cờ
+    :param board_: bàn cờ
+    :return: Giá trị bàn cờ
+    """
+
     if board_.is_checkmate():
         return -float('inf') if DEFAULT_DEPTH % 2 == 1 else float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material():
         return 0
 
     evaluation = 0
+    is_endgame_phase = is_endgame(board_)
 
     # 1. Trừ điểm nếu bị chiếu
     if board_.is_check():
-        evaluation -= 20
+        evaluation -= 20 if not is_endgame_phase else 10
 
     # 2. Trung tâm bàn cờ
     center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
@@ -79,7 +121,8 @@ def evaluate_board(board_):
             elif piece.piece_type == chess.QUEEN:
                 positional_bonus = config.QUEEN_POSITION_BONUS[7 - index // 8][index % 8]
             elif piece.piece_type == chess.KING:
-                positional_bonus = config.KING_POSITION_BONUS[7 - index // 8][index % 8]
+                # Được tính bình thường khi không phải endgame, nếu là endgame thì sẽ được tính sau.
+                positional_bonus = config.KING_POSITION_BONUS[7 - index // 8][index % 8] if not is_endgame_phase else 0
             else:
                 positional_bonus = 0
 
@@ -98,10 +141,15 @@ def evaluate_board(board_):
         king_square = board_.king(color)
         if king_square:
             defenders = len(board_.attackers(color, king_square))
+            bonus = defenders * 5 if not is_endgame_phase else defenders * 2
             if color == board_.turn:
-                evaluation += defenders * 5
+                evaluation += bonus
             else:
-                evaluation -= defenders * 5
+                evaluation -= bonus
+
+    # 6. Mop-up evaluation
+    if is_endgame_phase:
+        evaluation += mop_up_evaluation(board_)
 
     return evaluation
 
@@ -148,12 +196,6 @@ def get_best_move(board, depth=3):
     start_time = time.time()
 
     best_move = None
-    # if board.turn == chess.WHITE:
-    #     best_value = -float('inf')
-    #     is_maximizing = True
-    # else:
-    #     best_value = float('inf')
-    #     is_maximizing = False
     best_value = -float('inf')
     is_maximizing = True
 
@@ -180,12 +222,6 @@ def get_best_move(board, depth=3):
         evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
         board.pop()
 
-        # if board.turn == chess.WHITE and evaluation > best_value:
-        #     best_value = evaluation
-        #     best_move = move
-        # elif board.turn == chess.BLACK and evaluation < best_value:
-        #     best_value = evaluation
-        #     best_move = move
         if evaluation > best_value:
             best_value = evaluation
             best_move = move
@@ -258,13 +294,15 @@ def order_moves(board):
     moves.sort(key=move_score)
     return moves
 
+
 # Hàm tránh bị hòa khi đang có lợi thế
 def is_threefold_repetition_if_move(board, move):
     board_copy = board.copy()
     board_copy.push(move)
-    return board_copy.is_repetition(3) #3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
+    return board_copy.is_repetition(3)  # 3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
 
-#Hàm tính giá trị quân còn lại trên bàn
+
+# Hàm tính giá trị quân còn lại trên bàn
 def material_score(board):
     white_score = 0
     black_score = 0
@@ -279,3 +317,27 @@ def material_score(board):
                 black_score += value
 
     return white_score, black_score
+
+
+def is_endgame(board):
+    """
+    Kiểm tra xem bàn cờ có tổng giá trị các quân cờ nhỏ hơn 1300
+    hoặc cả hai bên không còn quân hậu hay xe nào
+    :param board: bàn cờ
+    :return: True nếu là end game, False nếu ngược lại
+    """
+    white_material = black_material = 0
+    has_major_piece = False
+
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece:
+            value = config.PIECE_VALUES[piece.piece_type]
+            if piece.color == chess.WHITE:
+                white_material += value
+            else:
+                black_material += value
+            if piece.piece_type in [chess.QUEEN, chess.ROOK]:
+                has_major_piece = True
+    total_material = white_material + black_material
+    return total_material < 1200 or not has_major_piece

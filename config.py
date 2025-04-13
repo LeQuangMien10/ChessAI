@@ -21,6 +21,21 @@ AI_VS_PLAYER = 3
 DEFAULT_DEPTH = 4
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 
+# Board
+
+# Test tránh hòa do LẶP NƯỚC 1 (2 xe vs vua)
+FEN_STRING_THREEFOLD_REPEAT_1 = "8/8/8/8/1k6/8/r1r5/K7 w - - 0 1"
+
+# Test tránh hòa do LẮP NƯỚC 2 (vua vs Mã+Xe)
+FEN_STRING_THREEFOLD_REPEAT_2 = "1K6/8/8/8/8/kn6/8/2r5 w - - 0 1"
+
+# Test endgame 1 (Vua + Hậu vs Vua)
+FEN_STRING_ENDGAME_1 = '8/8/5k2/8/8/3Q4/4K3/8 w - - 0 1'
+
+# Test endgame 2 (Vua + Tốt vs Vua)
+FEN_STRING_ENDGAME_2 = '8/8/5k2/8/8/5P2/4K3/8 w - - 0 1'
+
+
 PAWN_POSITION_BONUS = [
     [ 0,  0,  0,  0,  0,  0,  0,  0],
     [50, 50, 50, 50, 50, 50, 50, 50],
@@ -95,3 +110,14 @@ PIECE_VALUES = {
     chess.QUEEN: 900,
     chess.KING: 0
 }
+
+CENTER_MANHATTAN_DISTANCE = [
+    [6, 5, 4, 3, 3, 4, 5, 6],
+    [5, 4, 3, 2, 2, 3, 4, 5],
+    [4, 3, 2, 1, 1, 2, 3, 4],
+    [3, 2, 1, 0, 0, 1, 2, 3],
+    [3, 2, 1, 0, 0, 1, 2, 3],
+    [4, 3, 2, 1, 1, 2, 3, 4],
+    [5, 4, 3, 2, 2, 3, 4, 5],
+    [6, 5, 4, 3, 3, 4, 5, 6]
+]
