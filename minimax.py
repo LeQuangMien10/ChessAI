@@ -1,12 +1,14 @@
 import pickle
 import time
 import os
+import chess
+import chess.syzygy
 
 import config
 from config import *
 from transposition_table import compute_zorbist_hash
 
-positions_count = 0
+
 # Load transposition table nếu có
 if os.path.exists(TRANSPOSITION_FILE):
     with open(TRANSPOSITION_FILE, 'rb') as f:
@@ -14,17 +16,6 @@ if os.path.exists(TRANSPOSITION_FILE):
 else:
     transposition_table = {}
 
-killer_moves = {}
-history_table = {}
-
-def reset_search_table():
-    global killer_moves, history_table
-    killer_moves = {}
-    history_table = {}
-
-def update_history(move, depth):
-    key = (move.to_square, move.from_square)
-    history_table[key] = history_table.get(key, 0) + depth * depth
 
 def save_transposition_table(min_depth=3):
     # Đọc bảng cũ nếu có
@@ -60,7 +51,6 @@ def manhattan_distance(square1, square2):
     file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
     return abs(file1 - file2) + abs(rank1 - rank2)
 
-
 def mop_up_evaluation(board):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
@@ -73,8 +63,7 @@ def mop_up_evaluation(board):
     opponent_king_square = board.king(not board.turn)
     if king_square and opponent_king_square:
         # 1. Thưởng vua đối phương xa trung tâm
-        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][
-            opponent_king_square % 8]
+        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][opponent_king_square % 8]
         center_bonus = 4.7 * center_manhattan_distance
         evaluation += center_bonus
 
@@ -84,7 +73,6 @@ def mop_up_evaluation(board):
         evaluation += king_proximity_bonus
 
     return evaluation
-
 
 def evaluate_board(board_):
     """
@@ -168,8 +156,6 @@ def evaluate_board(board_):
 
 
 def minimax(board, depth, alpha, beta, is_maximizing):
-    global positions_count
-    positions_count += 1
     key = compute_zorbist_hash(board)
     if key in transposition_table and transposition_table[key]['depth'] >= depth:
         return transposition_table[key]['value']
@@ -189,12 +175,6 @@ def minimax(board, depth, alpha, beta, is_maximizing):
             max_value = max(max_value, evaluation)
             alpha = max(alpha, max_value)
             if alpha >= beta:
-                ply = board.ply()
-                if ply not in killer_moves:
-                    killer_moves[ply] = []
-                if move not in killer_moves[ply]:
-                    killer_moves[ply] = [move] + killer_moves[ply][:1]
-                update_history(move, depth)
                 break
         transposition_table[key] = {'value': max_value, 'depth': depth}
         return max_value
@@ -208,19 +188,68 @@ def minimax(board, depth, alpha, beta, is_maximizing):
             min_value = min(min_value, evaluation)
             beta = min(beta, min_value)
             if beta <= alpha:
-                ply = board.ply()
-                if ply not in killer_moves:
-                    killer_moves[ply] = []
-                if move not in killer_moves[ply]:
-                    killer_moves[ply] = [move] + killer_moves[ply][:1]
-                update_history(move, depth)
                 break
         transposition_table[key] = {'value': min_value, 'depth': depth}
         return min_value
 
 
+def count_pieces(board):
+    """Đếm số quân cờ trên bàn (bao gồm cả vua)."""
+    return sum(len(board.pieces(piece_type, color))
+               for piece_type in chess.PIECE_TYPES
+               for color in [chess.WHITE, chess.BLACK])
+
+
+def evaluate_with_tablebase(board):
+    import chess.syzygy
+    with chess.syzygy.open_tablebase("D:/3-4-5") as tablebase:
+        try:
+            # Đếm số quân đang còn trên bàn
+            piece_count = len(board.piece_map())
+            print(f"Số quân: {piece_count}")
+
+            # Chỉ gọi 1 lần duy nhất
+            wdl = tablebase.probe_wdl(board)
+            dtz = tablebase.probe_dtz(board)
+
+            print("✅ File hợp lệ. WDL:", wdl, "DTZ:", dtz)
+
+            if board.turn == chess.WHITE:
+                evaluation = {
+                    2: +10000,  # Trắng thắng
+                    1: +5000,
+                    0: 0,
+                    -1: -5000,
+                    -2: -10000  # Trắng thua
+                }[wdl]
+            else:
+                evaluation = {
+                    2: -10000,  # Đen thắng → xấu với trắng
+                    1: -5000,
+                    0: 0,
+                    -1: +5000,
+                    -2: +10000  # Đen thua → tốt với trắng
+                }[wdl]
+
+            if dtz is not None:
+                evaluation += (100 - abs(dtz)) * 0.1
+                print("syzygy: " +str(evaluation) )
+            return evaluation
+
+        except chess.syzygy.MissingTableError:
+            print("Thiếu file.")
+            return mop_up_evaluation(board)
+        except Exception as e:
+            print("Lỗi khác:", e)
+            return mop_up_evaluation(board)
+
+
 def get_best_move(board, depth=3):
     start_time = time.time()
+
+    # Đếm số quân cờ
+    piece_count = count_pieces(board)
+    #best_move, best_value = None, -float('inf')
 
     best_move = None
     best_value = -float('inf')
@@ -244,21 +273,18 @@ def get_best_move(board, depth=3):
                 elif white_score <= black_score - 200:
                     return move
 
-        # Đánh giá nước đi thông qua minimax
+        # Đánh giá nước đi
         board.push(move)
-        evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
+        # Dùng Tablebase cho ≤ 5 quân, nếu không thì Minimax
+        evaluation = evaluate_with_tablebase(board) if piece_count <= 5 \
+            else minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
         board.pop()
 
         if evaluation > best_value:
             best_value = evaluation
             best_move = move
 
-    global positions_count
-    print(positions_count)
-    positions_count = 0
-    elapsed_time = time.time() - start_time
-    print(f"Time: {elapsed_time: .2f} seconds")
-
+    print(f"Time: {time.time() - start_time:.2f}s")
     return best_move
 
 
@@ -301,15 +327,6 @@ def order_moves(board):
 
     def move_score(move):
         score = 0
-
-        # Killer moves
-        ply = board.ply()
-        if ply in killer_moves and move in killer_moves[ply]:
-            score += 2000
-
-        # History heuristics
-        key = (move.from_square, move.to_square)
-        score += history_table.get(key, 0) // 10
 
         # Ưu tiên cao nếu nước đi được đánh giá là quan trọng bởi is_important_move
         if is_important_move(board, move):

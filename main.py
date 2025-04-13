@@ -1,3 +1,4 @@
+import chess
 import pygame.time
 
 from menu import *
@@ -145,7 +146,7 @@ def player_vs_player():
             handle_game_end()
             break
 
-board = chess.Board() # Thêm Fen_string trong config để test
+board = chess.Board(FEN_STRING_ENDGAME_3) # Thêm Fen_string trong config để test
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()
