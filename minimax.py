@@ -2,12 +2,11 @@ import pickle
 import time
 import os
 
-import chess
-
 import config
 from config import *
 from transposition_table import compute_zorbist_hash
 
+positions_count = 0
 # Load transposition table nếu có
 if os.path.exists(TRANSPOSITION_FILE):
     with open(TRANSPOSITION_FILE, 'rb') as f:
@@ -15,6 +14,17 @@ if os.path.exists(TRANSPOSITION_FILE):
 else:
     transposition_table = {}
 
+killer_moves = {}
+history_table = {}
+
+def reset_search_table():
+    global killer_moves, history_table
+    killer_moves = {}
+    history_table = {}
+
+def update_history(move, depth):
+    key = (move.to_square, move.from_square)
+    history_table[key] = history_table.get(key, 0) + depth * depth
 
 def save_transposition_table(min_depth=3):
     # Đọc bảng cũ nếu có
@@ -50,6 +60,7 @@ def manhattan_distance(square1, square2):
     file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
     return abs(file1 - file2) + abs(rank1 - rank2)
 
+
 def mop_up_evaluation(board):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
@@ -62,7 +73,8 @@ def mop_up_evaluation(board):
     opponent_king_square = board.king(not board.turn)
     if king_square and opponent_king_square:
         # 1. Thưởng vua đối phương xa trung tâm
-        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][opponent_king_square % 8]
+        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][
+            opponent_king_square % 8]
         center_bonus = 4.7 * center_manhattan_distance
         evaluation += center_bonus
 
@@ -72,6 +84,7 @@ def mop_up_evaluation(board):
         evaluation += king_proximity_bonus
 
     return evaluation
+
 
 def evaluate_board(board_):
     """
@@ -155,6 +168,8 @@ def evaluate_board(board_):
 
 
 def minimax(board, depth, alpha, beta, is_maximizing):
+    global positions_count
+    positions_count += 1
     key = compute_zorbist_hash(board)
     if key in transposition_table and transposition_table[key]['depth'] >= depth:
         return transposition_table[key]['value']
@@ -174,6 +189,12 @@ def minimax(board, depth, alpha, beta, is_maximizing):
             max_value = max(max_value, evaluation)
             alpha = max(alpha, max_value)
             if alpha >= beta:
+                ply = board.ply()
+                if ply not in killer_moves:
+                    killer_moves[ply] = []
+                if move not in killer_moves[ply]:
+                    killer_moves[ply] = [move] + killer_moves[ply][:1]
+                update_history(move, depth)
                 break
         transposition_table[key] = {'value': max_value, 'depth': depth}
         return max_value
@@ -187,6 +208,12 @@ def minimax(board, depth, alpha, beta, is_maximizing):
             min_value = min(min_value, evaluation)
             beta = min(beta, min_value)
             if beta <= alpha:
+                ply = board.ply()
+                if ply not in killer_moves:
+                    killer_moves[ply] = []
+                if move not in killer_moves[ply]:
+                    killer_moves[ply] = [move] + killer_moves[ply][:1]
+                update_history(move, depth)
                 break
         transposition_table[key] = {'value': min_value, 'depth': depth}
         return min_value
@@ -226,6 +253,9 @@ def get_best_move(board, depth=3):
             best_value = evaluation
             best_move = move
 
+    global positions_count
+    print(positions_count)
+    positions_count = 0
     elapsed_time = time.time() - start_time
     print(f"Time: {elapsed_time: .2f} seconds")
 
@@ -271,6 +301,15 @@ def order_moves(board):
 
     def move_score(move):
         score = 0
+
+        # Killer moves
+        ply = board.ply()
+        if ply in killer_moves and move in killer_moves[ply]:
+            score += 2000
+
+        # History heuristics
+        key = (move.from_square, move.to_square)
+        score += history_table.get(key, 0) // 10
 
         # Ưu tiên cao nếu nước đi được đánh giá là quan trọng bởi is_important_move
         if is_important_move(board, move):
