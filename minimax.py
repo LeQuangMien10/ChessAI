@@ -23,10 +23,10 @@ def save_transposition_table(min_depth=3):
         with open(TRANSPOSITION_FILE, "rb") as f:
             old_table = pickle.load(f)
 
-    # Gộp bảng cũ và mới, ưu tiên entry có depth cao hơn
+    # Gộp bảng cũ và mới, ưu tiên entry có value cao hơn
     merged_table = old_table.copy()
     for k, v in transposition_table.items():
-        if (k not in merged_table) or (v["depth"] > merged_table[k]["depth"]):
+        if (k not in merged_table) or (v["value"] > merged_table[k]["value"]):
             merged_table[k] = v
 
     # Lọc theo độ sâu
@@ -289,9 +289,12 @@ def order_moves(board):
         if move.promotion:
             score += 900
 
-        return -score  # Đảo dấu để sort tăng → highest score trước
+        if board.gives_check(move):
+            score += 100
 
-    moves.sort(key=move_score)
+        return score  # Đảo dấu để sort tăng → highest score trước
+
+    moves.sort(key=move_score, reverse=True)
     return moves
 
 

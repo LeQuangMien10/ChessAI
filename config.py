@@ -35,6 +35,12 @@ FEN_STRING_ENDGAME_1 = '8/8/5k2/8/8/3Q4/4K3/8 w - - 0 1'
 # Test endgame 2 (Vua + Tốt vs Vua)
 FEN_STRING_ENDGAME_2 = '8/8/5k2/8/8/5P2/4K3/8 w - - 0 1'
 
+# Test blockage
+FEN_STRING_BLOCKAGE = '8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 0 1'
+
+# Test mate in 5
+FEN_STRING_MATE_IN_FIVE = '4rb1k/2pqn2p/6pn/ppp3N1/P1QP2b1/1P2p3/2B3PP/B3RRK1 w - - 0 1'
+
 
 PAWN_POSITION_BONUS = [
     [ 0,  0,  0,  0,  0,  0,  0,  0],

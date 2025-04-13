@@ -145,7 +145,7 @@ def player_vs_player():
             handle_game_end()
             break
 
-board = chess.Board(FEN_STRING_THREEFOLD_REPEAT_2) # Thêm Fen_string trong config để test
+board = chess.Board(FEN_STRING_MATE_IN_FIVE) # Thêm Fen_string trong config để test
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()
@@ -166,4 +166,4 @@ while running:
 
 pygame.quit()
 
-# TODO: End-game specific evaluation
+# TODO: Killer Moves and History Heuristics
