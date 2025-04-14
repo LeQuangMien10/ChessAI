@@ -1,7 +1,6 @@
 import pickle
 import time
 import os
-import chess
 import chess.syzygy
 
 import config
@@ -21,8 +20,8 @@ def save_transposition_table(min_depth=3):
     # Đọc bảng cũ nếu có
     old_table = {}
     if os.path.exists(TRANSPOSITION_FILE):
-        with open(TRANSPOSITION_FILE, "rb") as f:
-            old_table = pickle.load(f)
+        with open(TRANSPOSITION_FILE, "rb") as file:
+            old_table = pickle.load(file)
 
     # Gộp bảng cũ và mới, ưu tiên entry có value cao hơn
     merged_table = old_table.copy()
@@ -36,8 +35,8 @@ def save_transposition_table(min_depth=3):
     }
 
     # Ghi đè sau khi merge
-    with open(TRANSPOSITION_FILE, "wb") as f:
-        pickle.dump(filtered_table, f)
+    with open(TRANSPOSITION_FILE, "wb") as file:
+        pickle.dump(filtered_table, file)
 
 
 def manhattan_distance(square1, square2):
@@ -51,16 +50,17 @@ def manhattan_distance(square1, square2):
     file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
     return abs(file1 - file2) + abs(rank1 - rank2)
 
-def mop_up_evaluation(board):
+def mop_up_evaluation(board, ai_color):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
+    :param ai_color: màu cờ AI điều khiển
     :param board: bàn cờ
     :return: giá trị mop-up
     """
     evaluation = 0
     # Vị trí vua
-    king_square = board.king(board.turn)
-    opponent_king_square = board.king(not board.turn)
+    king_square = board.king(ai_color)
+    opponent_king_square = board.king(not ai_color)
     if king_square and opponent_king_square:
         # 1. Thưởng vua đối phương xa trung tâm
         center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][opponent_king_square % 8]
@@ -74,15 +74,16 @@ def mop_up_evaluation(board):
 
     return evaluation
 
-def evaluate_board(board_):
+def evaluate_board(board_, ai_color):
     """
     Đánh giá bàn cờ
+    :param ai_color: màu cờ AI điều khiển
     :param board_: bàn cờ
     :return: Giá trị bàn cờ
     """
 
     if board_.is_checkmate():
-        return -float('inf') if DEFAULT_DEPTH % 2 == 1 else float('inf')
+        return -float('inf') if board_.turn == ai_color else float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material():
         return 0
 
@@ -98,7 +99,7 @@ def evaluate_board(board_):
     for square in center_squares:
         piece = board_.piece_at(square)
         if piece:
-            if piece.color == board_.turn:
+            if piece.color == ai_color:
                 evaluation += 10
             else:
                 evaluation -= 10
@@ -128,14 +129,14 @@ def evaluate_board(board_):
                 positional_bonus = 0
 
             total = value + positional_bonus
-            evaluation += total if piece.color == board_.turn else -total
+            evaluation += total if piece.color == ai_color else -total
 
             # 4. Phạt quân treo
             attackers = board_.attackers(not piece.color, square)
             defenders = board_.attackers(piece.color, square)
             if attackers and not defenders:
                 penalty = value // 2
-                evaluation -= penalty if piece.color == board_.turn else -penalty
+                evaluation -= penalty if piece.color == ai_color else -penalty
 
     # 5. Thưởng bảo vệ vua
     for color in [chess.WHITE, chess.BLACK]:
@@ -143,54 +144,40 @@ def evaluate_board(board_):
         if king_square:
             defenders = len(board_.attackers(color, king_square))
             bonus = defenders * 5 if not is_endgame_phase else defenders * 2
-            if color == board_.turn:
+            if color == ai_color:
                 evaluation += bonus
             else:
                 evaluation -= bonus
 
     # 6. Mop-up evaluation
     if is_endgame_phase:
-        evaluation += mop_up_evaluation(board_)
+        evaluation += mop_up_evaluation(board_, ai_color)
 
     return evaluation
 
-
-def minimax(board, depth, alpha, beta, is_maximizing):
+def negamax(board, depth, alpha, beta, color):
     key = compute_zorbist_hash(board)
     if key in transposition_table and transposition_table[key]['depth'] >= depth:
         return transposition_table[key]['value']
 
     if depth == 0 or board.is_game_over():
-        value = -evaluate_board(board) if DEFAULT_DEPTH % 2 == 1 else evaluate_board(board)
+        value = evaluate_board(board, ai_color=board.turn if color == 1 else not board.turn) * color
         transposition_table[key] = {'value': value, 'depth': depth}
         return value
 
-    if is_maximizing:
-        max_value = -float('inf')
-        for move in order_moves(board):
-            board.push(move)
-            evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
-            board.pop()
+    max_value = -float('inf')
+    for move in order_moves(board):
+        board.push(move)
+        value = -negamax(board, depth - 1, -beta, -alpha, -color)
+        board.pop()
 
-            max_value = max(max_value, evaluation)
-            alpha = max(alpha, max_value)
-            if alpha >= beta:
-                break
-        transposition_table[key] = {'value': max_value, 'depth': depth}
-        return max_value
-    else:
-        min_value = float('inf')
-        for move in order_moves(board):
-            board.push(move)
-            evaluation = minimax(board, depth - 1, alpha, beta, not is_maximizing)
-            board.pop()
+        max_value = max(max_value, value)
+        alpha = max(value, alpha)
+        if alpha >= beta:
+            break
 
-            min_value = min(min_value, evaluation)
-            beta = min(beta, min_value)
-            if beta <= alpha:
-                break
-        transposition_table[key] = {'value': min_value, 'depth': depth}
-        return min_value
+    transposition_table[key] = {'value': max_value, 'depth': depth}
+    return max_value
 
 
 def count_pieces(board):
@@ -234,25 +221,24 @@ def evaluate_with_tablebase(board, ai_color=chess.WHITE):
 
         except chess.syzygy.MissingTableError:
             print("❌ Thiếu file tablebase.")
-            return mop_up_evaluation(board)
+            return mop_up_evaluation(board, ai_color)
         except Exception as e:
             print("❌ Lỗi khác:", e)
-            return mop_up_evaluation(board)
+            return mop_up_evaluation(board, ai_color)
 
 
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
-def get_best_move(board, depth=3, ai_color = chess.WHITE):
+def get_best_move(board, depth=3, ai_color=chess.WHITE):
     start_time = time.time()
 
     # Đếm số quân cờ
     piece_count = count_pieces(board)
-    #best_move, best_value = None, -float('inf')
 
     best_move = None
     best_value = -float('inf')
-    is_maximizing = True
+    color = 1 if board.turn == ai_color else -1
 
     for move in order_moves(board):
         # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 3 lần lặp
@@ -261,7 +247,7 @@ def get_best_move(board, depth=3, ai_color = chess.WHITE):
             print("white: " + str(white_score))
             print("black: " + str(black_score))
 
-            if board.turn == chess.BLACK:
+            if ai_color == chess.BLACK:
                 if black_score >= white_score + 100:
                     continue  # Đen đang lợi thế → tránh hòa
                 elif black_score <= white_score - 200:
@@ -278,15 +264,16 @@ def get_best_move(board, depth=3, ai_color = chess.WHITE):
         if piece_count <= 5 and not has_pawn(board, ai_color):
             evaluation = evaluate_with_tablebase(board, ai_color)
         else:
-            evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
+            evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
 
         board.pop()
 
-        if evaluation > best_value:
+        if evaluation >= best_value:
             best_value = evaluation
             best_move = move
 
     print(f"Time: {time.time() - start_time:.2f}s")
+    print(f"Best move: {best_move} | Value: {best_value:.2f}")
     return best_move
 
 

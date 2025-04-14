@@ -10,6 +10,6 @@
 1:52 AM 13/4/2025: Sửa lỗi depth chẵn lần 3
 2:34 AM 13/4/2025: Thêm transposition_table
 2:06 PM 13/4/2025: Thêm mop-up evaluation cho endgame
-10:40 PM 13/4/2025: Thêm killer moves và history heuristics
 11:55 PM 13/4/2025: Sử dụng syzygy endgame tablebase, dùng cho tàn cuộc
 11:33 AM 14/4/2025: Sửa lỗi syzygy tablebase lần 1 (tạm thời)
+6:46 PM 14/4/2025: Chuyển sang dùng negamax
