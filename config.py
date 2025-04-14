@@ -18,9 +18,9 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
-ai_color = chess.BLACK
 DEFAULT_DEPTH = 4
 TRANSPOSITION_FILE = 'transposition_table.pkl'
+HISTORY_TABLE_FILE = 'history_table.pkl'
 
 # Board
 
@@ -54,14 +54,14 @@ FEN_STRING_ENDGAME_7 = "1k6/1p4b1/8/8/8/8/8/4K3 w - - 0 1"
 #Test endgame 8 (Vua + Mã + Tốt vs Vua)
 FEN_STRING_ENDGAME_8 = "1k3n2/1p6/8/8/8/8/8/4K3 w - - 0 1"
 
+
 FEN_STRING_ENDGAME_9 = "4k3/2r2ppp/8/8/8/8/4K3/8 w - - 0 1"
+
 # Test blockage
 FEN_STRING_BLOCKAGE = '5k2/p3p1p1/8/8/3R4/8/1K6/8 w - - 0 1'
 
 # Test mate in 5
 FEN_STRING_MATE_IN_FIVE = '4rb1k/2pqn2p/6pn/ppp3N1/P1QP2b1/1P2p3/2B3PP/B3RRK1 w - - 0 1'
-
-FEN_STRING_MATE_IN_ONE = 'r1bqkb1r/pppnp1pp/2n2p2/4P3/2BP4/2N5/PP3PPP/R1BQK1NR w KQkq - 0 1'
 
 PAWN_POSITION_BONUS = [
     [ 0,  0,  0,  0,  0,  0,  0,  0],

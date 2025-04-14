@@ -3,7 +3,7 @@ import pygame.time
 
 from menu import *
 from game import *
-from minimax import get_best_move
+from minimax import get_best_move, save_history_table, decay_history_table
 from minimax import save_transposition_table
 
 pygame.init()
@@ -164,6 +164,8 @@ while running:
         player_vs_ai()
     elif game_mode == AI_VS_PLAYER:
         ai_vs_player()
+    save_history_table()
+    decay_history_table()
     save_transposition_table()
 
 pygame.quit()

@@ -5,8 +5,14 @@ import chess.syzygy
 
 import config
 from config import *
-from config import ai_color
 from transposition_table import compute_zorbist_hash
+
+KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
+
+HISTORY_TABLE = {}
+if os.path.exists(HISTORY_TABLE_FILE):
+    with open(HISTORY_TABLE_FILE, 'rb') as f:
+        HISTORY_TABLE = pickle.load(f)
 
 # Load transposition table nếu có
 if os.path.exists(TRANSPOSITION_FILE):
@@ -15,6 +21,14 @@ if os.path.exists(TRANSPOSITION_FILE):
 else:
     transposition_table = {}
 
+def save_history_table(min_score=100):
+    filtered_table = {k: v for k, v in HISTORY_TABLE.items() if v >= min_score}
+    with open(HISTORY_TABLE_FILE, "wb") as file:
+        pickle.dump(filtered_table, file)
+
+def decay_history_table(factor=0.5):
+    global HISTORY_TABLE
+    HISTORY_TABLE = {k: int(v * factor) for k, v in HISTORY_TABLE.items()}
 
 def save_transposition_table(min_depth=3):
     # Đọc bảng cũ nếu có
@@ -51,17 +65,17 @@ def manhattan_distance(square1, square2):
     return abs(file1 - file2) + abs(rank1 - rank2)
 
 
-def mop_up_evaluation(board, ai_color):
+def mop_up_evaluation(board, ai_color_):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
-    :param ai_color: màu cờ AI điều khiển
+    :param ai_color_: màu cờ AI điều khiển
     :param board: bàn cờ
     :return: giá trị mop-up
     """
     evaluation = 0
     # Vị trí vua
-    king_square = board.king(ai_color)
-    opponent_king_square = board.king(not ai_color)
+    king_square = board.king(ai_color_)
+    opponent_king_square = board.king(not ai_color_)
     if king_square and opponent_king_square:
         # 1. Thưởng vua đối phương xa trung tâm
         center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][
@@ -77,16 +91,16 @@ def mop_up_evaluation(board, ai_color):
     return evaluation
 
 
-def evaluate_board(board_, ai_color):
+def evaluate_board(board_, ai_color_):
     """
     Đánh giá bàn cờ
-    :param ai_color: màu cờ AI điều khiển
+    :param ai_color_: màu cờ AI điều khiển
     :param board_: bàn cờ
     :return: Giá trị bàn cờ
     """
 
     if board_.is_checkmate():
-        return -float('inf') if board_.turn == ai_color else float('inf')
+        return -float('inf') if board_.turn == ai_color_ else float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material():
         return 0
 
@@ -102,7 +116,7 @@ def evaluate_board(board_, ai_color):
     for square in center_squares:
         piece = board_.piece_at(square)
         if piece:
-            if piece.color == ai_color:
+            if piece.color == ai_color_:
                 evaluation += 10
             else:
                 evaluation -= 10
@@ -132,14 +146,14 @@ def evaluate_board(board_, ai_color):
                 positional_bonus = 0
 
             total = value + positional_bonus
-            evaluation += total if piece.color == ai_color else -total
+            evaluation += total if piece.color == ai_color_ else -total
 
             # 4. Phạt quân treo
             attackers = board_.attackers(not piece.color, square)
             defenders = board_.attackers(piece.color, square)
             if attackers and not defenders:
                 penalty = value // 2
-                evaluation -= penalty if piece.color == ai_color else -penalty
+                evaluation -= penalty if piece.color == ai_color_ else -penalty
 
     # 5. Thưởng bảo vệ vua
     for color in [chess.WHITE, chess.BLACK]:
@@ -147,14 +161,14 @@ def evaluate_board(board_, ai_color):
         if king_square:
             defenders = len(board_.attackers(color, king_square))
             bonus = defenders * 5 if not is_endgame_phase else defenders * 2
-            if color == ai_color:
+            if color == ai_color_:
                 evaluation += bonus
             else:
                 evaluation -= bonus
 
     # 6. Mop-up evaluation
     if is_endgame_phase:
-        evaluation += mop_up_evaluation(board_, ai_color)
+        evaluation += mop_up_evaluation(board_, ai_color_)
 
     return evaluation
 
@@ -165,19 +179,30 @@ def negamax(board, depth, alpha, beta, color):
         return transposition_table[key]['value']
 
     if depth == 0 or board.is_game_over():
-        value = evaluate_board(board, ai_color=board.turn if color == 1 else not board.turn) * color
+        value = evaluate_board(board, ai_color_=board.turn if color == 1 else not board.turn) * color
         transposition_table[key] = {'value': value, 'depth': depth}
         return value
 
     max_value = -float('inf')
-    for move in order_moves(board):
+    for move in order_moves(board, depth):
         board.push(move)
         value = -negamax(board, depth - 1, -beta, -alpha, -color)
         board.pop()
 
-        max_value = max(max_value, value)
+        # max_value = max(max_value, value)
+        if value > max_value:
+            max_value = value
+            move_key = (move.from_square, move.to_square)
+            HISTORY_TABLE[move_key] = HISTORY_TABLE.get(move_key, 0) + (depth * depth)
         alpha = max(value, alpha)
         if alpha >= beta:
+            if depth <= DEFAULT_DEPTH:
+                if move not in KILLER_MOVES[depth]:
+                    if len(KILLER_MOVES[depth]) >= 2:
+                        KILLER_MOVES[depth].pop(list(KILLER_MOVES[depth].keys())[0])
+                    KILLER_MOVES[depth][move] = True
+                move_key = (move.from_square, move.to_square)
+                HISTORY_TABLE[move_key] = HISTORY_TABLE.get(move_key, 0) + (depth * depth)
             break
 
     transposition_table[key] = {'value': max_value, 'depth': depth}
@@ -191,7 +216,7 @@ def count_pieces(board):
                for color in [chess.WHITE, chess.BLACK])
 
 
-def evaluate_with_tablebase(board, ai_color=chess.WHITE):
+def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
     import chess.syzygy
     with chess.syzygy.open_tablebase("3-4-5") as tablebase:
         try:
@@ -202,7 +227,7 @@ def evaluate_with_tablebase(board, ai_color=chess.WHITE):
             dtz = tablebase.probe_dtz(board)
 
             # Chuyển về góc nhìn AI
-            if board.turn == ai_color:
+            if board.turn == ai_color_:
                 wdl = wdl_raw
             else:
                 wdl = -wdl_raw
@@ -225,10 +250,10 @@ def evaluate_with_tablebase(board, ai_color=chess.WHITE):
 
         except chess.syzygy.MissingTableError:
             print("❌ Thiếu file tablebase.")
-            return mop_up_evaluation(board, ai_color)
+            return mop_up_evaluation(board, ai_color_)
         except Exception as e:
             print("❌ Lỗi khác:", e)
-            return mop_up_evaluation(board, ai_color)
+            return mop_up_evaluation(board, ai_color_)
 
 
 def has_pawn(board, color):
@@ -238,6 +263,10 @@ def has_pawn(board, color):
 def get_best_move(board, depth=3, ai_color_=chess.WHITE):
     start_time = time.time()
 
+    # Reset Killer Moves
+    global KILLER_MOVES
+    KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
+
     # Đếm số quân cờ
     piece_count = count_pieces(board)
 
@@ -245,7 +274,7 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
     best_value = -float('inf')
     color = 1 if board.turn == ai_color_ else -1
 
-    for move in order_moves(board):
+    for move in order_moves(board, depth):
         # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 3 lần lặp
         if is_threefold_repetition_if_move(board, move):
             white_score, black_score = material_score(board)
@@ -278,7 +307,7 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
             best_move = move
 
     print(f"Time: {time.time() - start_time:.2f}s")
-    san = board.san(best_move)
+    san = board.san(best_move) if best_move else 'None'
     print(f"Best move: {san} | Value: {best_value:.2f}")
     return best_move
 
@@ -340,23 +369,34 @@ def is_important_move(board, move):
     return False
 
 
-def order_moves(board):
+def order_moves(board, depth):
     moves = list(board.legal_moves)
 
     # Tính điểm cho từng nước đi
-    scored_moves = [(move, move_score(board, move)) for move in moves]
+    # scored_moves = [(move, move_score(board, move)) for move in moves]
+    scored_moves = []
+
+    for move in moves:
+        score = move_score(board, move)
+
+        if depth <= DEFAULT_DEPTH and move in KILLER_MOVES[depth]:
+            score += 2000
+        move_key = (move.from_square, move.to_square)
+        history_score = HISTORY_TABLE.get(move_key, 0)
+        score += history_score // 100
+
+        scored_moves.append((move, score))
 
     # Sắp xếp theo điểm số, điểm cao nhất đứng đầu
-    moves.sort(key=lambda move: next(s for m, s in scored_moves if m == move), reverse=True)
-
-    return moves
+    scored_moves.sort(key=lambda x: x[1], reverse=True)
+    return [move for move, _ in scored_moves]
 
 
 # Hàm tránh bị hòa khi đang có lợi thế
 def is_threefold_repetition_if_move(board, move):
     board_copy = board.copy()
     board_copy.push(move)
-    return board_copy.is_repetition(2)  # 3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
+    return board_copy.is_repetition(3)  # 3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
 
 
 # Hàm tính giá trị quân còn lại trên bàn
@@ -378,9 +418,8 @@ def material_score(board):
 
 def is_endgame(board):
     """
-    Kiểm tra xem bàn cờ có tổng giá trị các quân cờ nhỏ hơn 1300
+    Kiểm tra xem bàn cờ có tổng giá trị các quân cờ nhỏ hơn 1200
     hoặc cả hai bên không còn quân hậu hay xe nào
-    hoặc là bên AI có đủ quân để thắng
     :param board: bàn cờ
     :return: True nếu là end game, False nếu ngược lại
     """
@@ -398,8 +437,4 @@ def is_endgame(board):
             if piece.piece_type in [chess.QUEEN, chess.ROOK]:
                 has_major_piece = True
     total_material = white_material + black_material
-    if ai_color == chess.WHITE and black_material <= 100 and white_material >= 300:
-        return True
-    if ai_color == chess.BLACK and white_material <= 100 and black_material >= 300:
-        return True
     return total_material < 1200 or not has_major_piece
