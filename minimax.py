@@ -276,6 +276,49 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
     print(f"Best move: {best_move} | Value: {best_value:.2f}")
     return best_move
 
+# Hàm move_score (tách ra từ order_moves để tái sử dụng)
+def move_score(board, move):
+    if is_self_mate_next_move(board, move):
+        #print(f"Move {move}: tự chiếu hết")
+        return -float('inf')
+
+    if is_mate_in_one_after_move(board, move):
+        #print(f"Move {move}: bị chiếu hết")
+        return -float('inf')
+
+    score = 0
+    if is_important_move(board, move):
+        board.push(move)
+        is_mate = False
+        for opponent_move in board.legal_moves:
+            board.push(opponent_move)
+            if board.is_checkmate():
+                is_mate = True
+                board.pop()
+                break
+            board.pop()
+        board.pop()
+        if is_mate:
+            #print(f"Move {move}: nước qtrng nhưng bị chiếu hết")
+            return -float('inf')
+        #print(f"Move {move}: nước qtrng")
+        score += 1000
+
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        attacker = board.piece_at(move.from_square)
+        if captured and attacker:
+            score += 10 * config.PIECE_VALUES[captured.piece_type] - config.PIECE_VALUES[attacker.piece_type]
+        else:
+            score += 50
+
+    if move.promotion:
+        score += 900
+
+    if board.gives_check(move):
+        score += 100
+
+    return score
 
 def is_important_move(board, move):
     # Nước chiếu
@@ -314,34 +357,13 @@ def is_important_move(board, move):
 def order_moves(board):
     moves = list(board.legal_moves)
 
-    def move_score(move):
-        score = 0
+    # Tính điểm cho từng nước đi
+    scored_moves = [(move, move_score(board, move)) for move in moves]
 
-        # Ưu tiên cao nếu nước đi được đánh giá là quan trọng bởi is_important_move
-        if is_important_move(board, move):
-            score += 1000  # Giá trị lớn để đảm bảo nước quan trọng đứng đầu
+    # Sắp xếp theo điểm số, điểm cao nhất đứng đầu
+    moves.sort(key=lambda move: next(s for m, s in scored_moves if m == move), reverse=True)
 
-        # Logic hiện có: ưu tiên nước ăn quân
-        if board.is_capture(move):
-            captured = board.piece_at(move.to_square)
-            attacker = board.piece_at(move.from_square)
-            if captured and attacker:
-                score += 10 * config.PIECE_VALUES[captured.piece_type] - config.PIECE_VALUES[attacker.piece_type]
-            else:
-                score += 50  # Ưu tiên nước bắt thường
-
-        # Logic hiện có: ưu tiên nước phong cấp
-        if move.promotion:
-            score += 900
-
-        if board.gives_check(move):
-            score += 100
-
-        return score  # Đảo dấu để sort tăng → highest score trước
-
-    moves.sort(key=move_score, reverse=True)
     return moves
-
 
 # Hàm tránh bị hòa khi đang có lợi thế
 def is_threefold_repetition_if_move(board, move):
