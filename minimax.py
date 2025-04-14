@@ -8,7 +8,6 @@ from config import *
 from config import ai_color
 from transposition_table import compute_zorbist_hash
 
-
 # Load transposition table nếu có
 if os.path.exists(TRANSPOSITION_FILE):
     with open(TRANSPOSITION_FILE, 'rb') as f:
@@ -51,6 +50,7 @@ def manhattan_distance(square1, square2):
     file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
     return abs(file1 - file2) + abs(rank1 - rank2)
 
+
 def mop_up_evaluation(board, ai_color):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
@@ -64,7 +64,8 @@ def mop_up_evaluation(board, ai_color):
     opponent_king_square = board.king(not ai_color)
     if king_square and opponent_king_square:
         # 1. Thưởng vua đối phương xa trung tâm
-        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][opponent_king_square % 8]
+        center_manhattan_distance = config.CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][
+            opponent_king_square % 8]
         center_bonus = 4.7 * center_manhattan_distance
         evaluation += center_bonus
 
@@ -74,6 +75,7 @@ def mop_up_evaluation(board, ai_color):
         evaluation += king_proximity_bonus
 
     return evaluation
+
 
 def evaluate_board(board_, ai_color):
     """
@@ -156,6 +158,7 @@ def evaluate_board(board_, ai_color):
 
     return evaluation
 
+
 def negamax(board, depth, alpha, beta, color):
     key = compute_zorbist_hash(board)
     if key in transposition_table and transposition_table[key]['depth'] >= depth:
@@ -207,7 +210,7 @@ def evaluate_with_tablebase(board, ai_color=chess.WHITE):
             print(f"✅ File hợp lệ. WDL (raw): {wdl_raw} | WDL (AI): {wdl} | DTZ: {dtz}")
 
             evaluation = {
-                2: 10000,   # AI thắng
+                2: 10000,  # AI thắng
                 1: 5000,
                 0: 0,
                 -1: -5000,
@@ -231,7 +234,8 @@ def evaluate_with_tablebase(board, ai_color=chess.WHITE):
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
-def get_best_move(board, depth=3, ai_color=chess.WHITE):
+
+def get_best_move(board, depth=3, ai_color_=chess.WHITE):
     start_time = time.time()
 
     # Đếm số quân cờ
@@ -239,7 +243,7 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
 
     best_move = None
     best_value = -float('inf')
-    color = 1 if board.turn == ai_color else -1
+    color = 1 if board.turn == ai_color_ else -1
 
     for move in order_moves(board):
         # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 3 lần lặp
@@ -248,7 +252,7 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
             print("white: " + str(white_score))
             print("black: " + str(black_score))
 
-            if ai_color == chess.BLACK:
+            if ai_color_ == chess.BLACK:
                 if black_score >= white_score + 100:
                     continue  # Đen đang lợi thế → tránh hòa
                 elif black_score <= white_score - 200:
@@ -262,8 +266,8 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
         # Đánh giá nước đi
         board.push(move)
         # Dùng Tablebase cho ≤ 5 quân, nếu không thì Minimax
-        if piece_count <= 5 and not has_pawn(board, ai_color):
-            evaluation = evaluate_with_tablebase(board, ai_color)
+        if piece_count <= 5 and not has_pawn(board, ai_color_):
+            evaluation = evaluate_with_tablebase(board, ai_color_)
         else:
             evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
 
@@ -274,8 +278,10 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
             best_move = move
 
     print(f"Time: {time.time() - start_time:.2f}s")
-    print(f"Best move: {best_move} | Value: {best_value:.2f}")
+    san = board.san(best_move)
+    print(f"Best move: {san} | Value: {best_value:.2f}")
     return best_move
+
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
 def move_score(board, move):
@@ -298,6 +304,7 @@ def move_score(board, move):
         score += 100
 
     return score
+
 
 def is_important_move(board, move):
     # Nước chiếu
@@ -343,6 +350,7 @@ def order_moves(board):
     moves.sort(key=lambda move: next(s for m, s in scored_moves if m == move), reverse=True)
 
     return moves
+
 
 # Hàm tránh bị hòa khi đang có lợi thế
 def is_threefold_repetition_if_move(board, move):

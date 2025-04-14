@@ -96,7 +96,7 @@ def ai_vs_player():
 
 
 def handle_ai_turn(ai_color):
-    best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color=ai_color)
+    best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color_=ai_color)
     if best_move:
         board.push(best_move)
     else:

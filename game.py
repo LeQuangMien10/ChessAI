@@ -11,6 +11,9 @@ for piece in chess.PIECE_SYMBOLS[1:]:  # 'p', 'n', 'b', 'r', 'q', 'k'
 def draw_board(screen, selected_square=None, legal_moves=None):
     if legal_moves is None:
         legal_moves = []
+
+    font = pygame.font.SysFont(None, 24)  # Có thể đổi font, size tuỳ ý
+
     for row in range(8):
         for col in range(8):
             color = WHITE if (row + col) % 2 == 0 else BLACK
@@ -18,10 +21,22 @@ def draw_board(screen, selected_square=None, legal_moves=None):
                 color = HIGHLIGHT
             pygame.draw.rect(screen, color, pygame.Rect(col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
+            # Vẽ ký hiệu cột (a–h) ở hàng cuối cùng
+            if row == 7:
+                label = font.render(chr(ord('a') + col), True, (0, 0, 0) if color == WHITE else (255, 255, 255))
+                screen.blit(label, (col * SQUARE_SIZE + 4, 8 * SQUARE_SIZE - 20))
+
+            # Vẽ ký hiệu hàng (1–8) ở cột đầu tiên
+            if col == 0:
+                label = font.render(str(8 - row), True, (0, 0, 0) if color == WHITE else (255, 255, 255))
+                screen.blit(label, (4, row * SQUARE_SIZE + 4))
+
+    # Highlight các nước đi hợp lệ
     for move in legal_moves:
         col, row = chess.square_file(move), chess.square_rank(move)
         pygame.draw.circle(screen, MOVE_HIGHLIGHT[:3],
                            (col * SQUARE_SIZE + SQUARE_SIZE // 2, (7 - row) * SQUARE_SIZE + SQUARE_SIZE // 2), 10)
+
 
 
 # Hàm vẽ quân cờ
