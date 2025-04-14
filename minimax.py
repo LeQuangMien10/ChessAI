@@ -243,18 +243,24 @@ def evaluate_with_tablebase(board, ai_color=chess.WHITE):
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
-def get_best_move(board, depth=3, ai_color = chess.WHITE):
+def get_best_move(board, depth=3, ai_color=chess.WHITE):
     start_time = time.time()
 
     # Đếm số quân cờ
     piece_count = count_pieces(board)
-    #best_move, best_value = None, -float('inf')
-
     best_move = None
     best_value = -float('inf')
     is_maximizing = True
 
-    for move in order_moves(board):
+    # Lưu điểm số từ order_moves để kiểm tra
+    scored_moves = [(move, move_score(board, move)) for move in order_moves(board)]
+
+    for move, order_score in scored_moves:
+        # Bỏ qua nước đi dẫn đến chiếu hết
+        if order_score == -float('inf'):
+            #print(f"Bỏ qua {move}: dẫn đến chiếu hết")
+            continue
+
         # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 3 lần lặp
         if is_threefold_repetition_if_move(board, move):
             white_score, black_score = material_score(board)
@@ -274,12 +280,10 @@ def get_best_move(board, depth=3, ai_color = chess.WHITE):
 
         # Đánh giá nước đi
         board.push(move)
-        # Dùng Tablebase cho ≤ 5 quân, nếu không thì Minimax
         if piece_count <= 5 and not has_pawn(board, ai_color):
             evaluation = evaluate_with_tablebase(board, ai_color)
         else:
             evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
-
         board.pop()
 
         if evaluation > best_value:
@@ -289,8 +293,73 @@ def get_best_move(board, depth=3, ai_color = chess.WHITE):
     print(f"Time: {time.time() - start_time:.2f}s")
     return best_move
 
+# Hàm move_score (tách ra từ order_moves để tái sử dụng)
+def move_score(board, move):
+    if is_self_mate_next_move(board, move):
+        #print(f"Move {move}: tự chiếu hết")
+        return -float('inf')
+
+    if is_mate_in_one_after_move(board, move):
+        #print(f"Move {move}: bị chiếu hết")
+        return -float('inf')
+
+    score = 0
+    if is_important_move(board, move):
+        board.push(move)
+        is_mate = False
+        for opponent_move in board.legal_moves:
+            board.push(opponent_move)
+            if board.is_checkmate():
+                is_mate = True
+                board.pop()
+                break
+            board.pop()
+        board.pop()
+        if is_mate:
+            #print(f"Move {move}: nước qtrng nhưng bị chiếu hết")
+            return -float('inf')
+        #print(f"Move {move}: nước qtrng")
+        score += 1000
+
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        attacker = board.piece_at(move.from_square)
+        if captured and attacker:
+            score += 10 * config.PIECE_VALUES[captured.piece_type] - config.PIECE_VALUES[attacker.piece_type]
+        else:
+            score += 50
+
+    if move.promotion:
+        score += 900
+
+    if board.gives_check(move):
+        score += 100
+
+    return score
 
 def is_important_move(board, move):
+    # Kiểm tra xem nước đi có dẫn đến bị chiếu hết ngay sau đó
+    board.push(move)
+    is_mate = False
+    for opponent_move in board.legal_moves:
+        board.push(opponent_move)
+        if board.is_checkmate():
+            is_mate = True
+            board.pop()
+            break  # Thoát sớm nếu phát hiện chiếu hết
+        board.pop()
+    board.pop()
+
+    if is_mate:
+        return False  # Không coi là nước quan trọng nếu dẫn đến bị chiếu hết
+
+    # Kiểm tra xem nước đi có tự dẫn đến chiếu hết ngay lập tức
+    board.push(move)
+    if board.is_checkmate():
+        board.pop()
+        return False
+    board.pop()
+
     # Nước chiếu
     if board.gives_check(move):
         return True
@@ -324,37 +393,36 @@ def is_important_move(board, move):
     return False
 
 
+def is_mate_in_one_after_move(board, move):
+    board.push(move)
+    result = False
+    for reply in board.legal_moves:
+        board.push(reply)
+        if board.is_checkmate():
+            result = True
+            board.pop()
+            break  # Thoát sớm nếu phát hiện chiếu hết
+        board.pop()
+    board.pop()
+    return result
+
+def is_self_mate_next_move(board, move):
+    board.push(move)
+    is_mate = board.is_checkmate()
+    board.pop()
+    return is_mate
+
+
 def order_moves(board):
     moves = list(board.legal_moves)
 
-    def move_score(move):
-        score = 0
+    # Tính điểm cho từng nước đi
+    scored_moves = [(move, move_score(board, move)) for move in moves]
 
-        # Ưu tiên cao nếu nước đi được đánh giá là quan trọng bởi is_important_move
-        if is_important_move(board, move):
-            score += 1000  # Giá trị lớn để đảm bảo nước quan trọng đứng đầu
+    # Sắp xếp theo điểm số, điểm cao nhất đứng đầu
+    moves.sort(key=lambda move: next(s for m, s in scored_moves if m == move), reverse=True)
 
-        # Logic hiện có: ưu tiên nước ăn quân
-        if board.is_capture(move):
-            captured = board.piece_at(move.to_square)
-            attacker = board.piece_at(move.from_square)
-            if captured and attacker:
-                score += 10 * config.PIECE_VALUES[captured.piece_type] - config.PIECE_VALUES[attacker.piece_type]
-            else:
-                score += 50  # Ưu tiên nước bắt thường
-
-        # Logic hiện có: ưu tiên nước phong cấp
-        if move.promotion:
-            score += 900
-
-        if board.gives_check(move):
-            score += 100
-
-        return score  # Đảo dấu để sort tăng → highest score trước
-
-    moves.sort(key=move_score, reverse=True)
     return moves
-
 
 # Hàm tránh bị hòa khi đang có lợi thế
 def is_threefold_repetition_if_move(board, move):
