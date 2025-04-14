@@ -278,14 +278,6 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
 def move_score(board, move):
-    if is_self_mate_next_move(board, move):
-        #print(f"Move {move}: tự chiếu hết")
-        return -float('inf')
-
-    if is_mate_in_one_after_move(board, move):
-        #print(f"Move {move}: bị chiếu hết")
-        return -float('inf')
-
     score = 0
     if is_important_move(board, move):
         board.push(move)
