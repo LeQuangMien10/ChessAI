@@ -35,8 +35,23 @@ FEN_STRING_ENDGAME_1 = '8/8/5k2/8/8/3Q4/4K3/8 w - - 0 1'
 # Test endgame 2 (Vua + Tốt vs Vua)
 FEN_STRING_ENDGAME_2 = '8/8/5k2/8/8/5P2/4K3/8 w - - 0 1'
 
-# Test endgame 4 (Vua + 2 Tượng vs Vua)
+# Test endgame 3 (Vua + 2 Tượng vs Vua)
 FEN_STRING_ENDGAME_3 = '1k6/8/8/8/8/8/6B1/1K2B3 w HAha - 0 1'
+
+#Test endgame 4 (Vua + Xe vs Vua)
+FEN_STRING_ENDGAME_4 = "6k1/8/8/8/R7/8/8/4K3 w - - 0 1"
+
+#Test endgame 5 (Vua + Xe + Tốt vs Vua)
+FEN_STRING_ENDGAME_5 = "6k1/4p3/8/8/r7/8/8/4K3 w - - 0 1"
+
+#Test endgame 6 (Vua + Mã + Tượng vs Vua + Tượng) (Thế hòa)
+FEN_STRING_ENDGAME_6 = "8/8/4kb2/8/8/8/3B4/3K1N2 w - - 0 1"
+
+#Test endgame 7 (Vua + Tượng + Tốt vs Vua)
+FEN_STRING_ENDGAME_7 = "1k6/1p4b1/8/8/8/8/8/4K3 w - - 0 1"
+
+#Test endgame 8 (Vua + Mã + Tốt vs Vua)
+FEN_STRING_ENDGAME_8 = "1k3n2/1p6/8/8/8/8/8/4K3 w - - 0 1"
 
 # Test blockage
 FEN_STRING_BLOCKAGE = '5k2/p3p1p1/8/8/3R4/8/1K6/8 w - - 0 1'

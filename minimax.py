@@ -200,51 +200,50 @@ def count_pieces(board):
                for color in [chess.WHITE, chess.BLACK])
 
 
-def evaluate_with_tablebase(board):
+def evaluate_with_tablebase(board, ai_color=chess.WHITE):
     import chess.syzygy
     with chess.syzygy.open_tablebase("3-4-5") as tablebase:
         try:
-            # Đếm số quân đang còn trên bàn
             piece_count = len(board.piece_map())
             print(f"Số quân: {piece_count}")
 
-            # Chỉ gọi 1 lần duy nhất
-            wdl = tablebase.probe_wdl(board)
+            wdl_raw = tablebase.probe_wdl(board)
             dtz = tablebase.probe_dtz(board)
 
-            print("✅ File hợp lệ. WDL:", wdl, "DTZ:", dtz)
-
-            if board.turn == chess.WHITE:
-                evaluation = {
-                    2: +10000,  # Trắng thắng
-                    1: +5000,
-                    0: 0,
-                    -1: -5000,
-                    -2: -10000  # Trắng thua
-                }[wdl]
+            # Chuyển về góc nhìn AI
+            if board.turn == ai_color:
+                wdl = wdl_raw
             else:
-                evaluation = {
-                    2: -10000,  # Đen thắng → xấu với trắng
-                    1: -5000,
-                    0: 0,
-                    -1: +5000,
-                    -2: +10000  # Đen thua → tốt với trắng
-                }[wdl]
+                wdl = -wdl_raw
+
+            print(f"✅ File hợp lệ. WDL (raw): {wdl_raw} | WDL (AI): {wdl} | DTZ: {dtz}")
+
+            evaluation = {
+                2: 10000,   # AI thắng
+                1: 5000,
+                0: 0,
+                -1: -5000,
+                -2: -10000  # AI thua
+            }.get(wdl, 0)
 
             if dtz is not None:
-                evaluation += (100 - abs(dtz)) * 0.1
-                print("syzygy: " +str(evaluation) )
+                evaluation += max(0, 100 - abs(dtz)) * 0.5
+                print("syzygy eval:", evaluation)
+
             return evaluation
 
         except chess.syzygy.MissingTableError:
-            print("Thiếu file.")
+            print("❌ Thiếu file tablebase.")
             return mop_up_evaluation(board)
         except Exception as e:
-            print("Lỗi khác:", e)
+            print("❌ Lỗi khác:", e)
             return mop_up_evaluation(board)
 
 
-def get_best_move(board, depth=3):
+def has_pawn(board, color):
+    return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
+
+def get_best_move(board, depth=3, ai_color = chess.WHITE):
     start_time = time.time()
 
     # Đếm số quân cờ
@@ -276,8 +275,11 @@ def get_best_move(board, depth=3):
         # Đánh giá nước đi
         board.push(move)
         # Dùng Tablebase cho ≤ 5 quân, nếu không thì Minimax
-        evaluation = evaluate_with_tablebase(board) if piece_count <= 5 \
-            else minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
+        if piece_count <= 5 and not has_pawn(board, ai_color):
+            evaluation = evaluate_with_tablebase(board, ai_color)
+        else:
+            evaluation = minimax(board, depth - 1, float('-inf'), float('inf'), not is_maximizing)
+
         board.pop()
 
         if evaluation > best_value:

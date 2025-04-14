@@ -96,7 +96,7 @@ def ai_vs_player():
 
 
 def handle_ai_turn():
-    best_move = get_best_move(board, depth=DEFAULT_DEPTH)
+    best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color=ai_color)
     if best_move:
         board.push(best_move)
     else:
@@ -146,11 +146,12 @@ def player_vs_player():
             handle_game_end()
             break
 
-board = chess.Board(FEN_STRING_ENDGAME_3) # Thêm Fen_string trong config để test
+board = chess.Board(FEN_STRING_ENDGAME_5) # Thêm Fen_string trong config để test
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()
 running = True
+
 
 while running:
     clock.tick(60)
@@ -160,8 +161,10 @@ while running:
     elif game_mode == TWO_AIS:
         ai_vs_ai()
     elif game_mode == PLAYER_VS_AI:
+        ai_color = chess.BLACK
         player_vs_ai()
     elif game_mode == AI_VS_PLAYER:
+        ai_color = chess.WHITE
         ai_vs_player()
     save_transposition_table()
 
