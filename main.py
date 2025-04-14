@@ -55,7 +55,7 @@ def player_vs_ai():
                     update_screen()
 
                     if not board.is_game_over():
-                        handle_ai_turn()
+                        handle_ai_turn(chess.BLACK)
 
                 selected_square = None
                 legal_moves = []
@@ -67,7 +67,7 @@ def player_vs_ai():
 def ai_vs_player():
     global running, selected_square, legal_moves
     if board.turn == chess.WHITE and not board.is_game_over():
-        handle_ai_turn()
+        handle_ai_turn(chess.WHITE)
 
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
@@ -95,7 +95,7 @@ def ai_vs_player():
             break
 
 
-def handle_ai_turn():
+def handle_ai_turn(ai_color):
     best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color=ai_color)
     if best_move:
         board.push(best_move)
@@ -109,11 +109,11 @@ def ai_vs_ai():
         if event_.type == pygame.QUIT:
             running = False
 
-    handle_ai_turn()
+    handle_ai_turn(chess.WHITE)
 
     if not board.is_game_over():
         update_screen()
-        handle_ai_turn()
+        handle_ai_turn(chess.BLACK)
     if board.is_game_over():
         handle_game_end()
         running = False
@@ -146,7 +146,7 @@ def player_vs_player():
             handle_game_end()
             break
 
-board = chess.Board(FEN_STRING_MATE_IN_ONE) # Thêm Fen_string trong config để test
+board = chess.Board() # Thêm Fen_string trong config để test
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()
@@ -161,10 +161,8 @@ while running:
     elif game_mode == TWO_AIS:
         ai_vs_ai()
     elif game_mode == PLAYER_VS_AI:
-        ai_color = chess.BLACK
         player_vs_ai()
     elif game_mode == AI_VS_PLAYER:
-        ai_color = chess.WHITE
         ai_vs_player()
     save_transposition_table()
 
