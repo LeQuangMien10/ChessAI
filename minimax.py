@@ -280,20 +280,6 @@ def get_best_move(board, depth=3, ai_color=chess.WHITE):
 def move_score(board, move):
     score = 0
     if is_important_move(board, move):
-        board.push(move)
-        is_mate = False
-        for opponent_move in board.legal_moves:
-            board.push(opponent_move)
-            if board.is_checkmate():
-                is_mate = True
-                board.pop()
-                break
-            board.pop()
-        board.pop()
-        if is_mate:
-            #print(f"Move {move}: nước qtrng nhưng bị chiếu hết")
-            return -float('inf')
-        #print(f"Move {move}: nước qtrng")
         score += 1000
 
     if board.is_capture(move):
