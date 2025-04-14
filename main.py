@@ -146,7 +146,7 @@ def player_vs_player():
             handle_game_end()
             break
 
-board = chess.Board(FEN_STRING_MATE_IN_ONE) # Thêm Fen_string trong config để test
+board = chess.Board() # Thêm Fen_string trong config để test
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()

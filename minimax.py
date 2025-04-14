@@ -5,6 +5,7 @@ import chess.syzygy
 
 import config
 from config import *
+from config import ai_color
 from transposition_table import compute_zorbist_hash
 
 
@@ -347,7 +348,7 @@ def order_moves(board):
 def is_threefold_repetition_if_move(board, move):
     board_copy = board.copy()
     board_copy.push(move)
-    return board_copy.is_repetition(3)  # 3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
+    return board_copy.is_repetition(2)  # 3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
 
 
 # Hàm tính giá trị quân còn lại trên bàn
@@ -371,6 +372,7 @@ def is_endgame(board):
     """
     Kiểm tra xem bàn cờ có tổng giá trị các quân cờ nhỏ hơn 1300
     hoặc cả hai bên không còn quân hậu hay xe nào
+    hoặc là bên AI có đủ quân để thắng
     :param board: bàn cờ
     :return: True nếu là end game, False nếu ngược lại
     """
@@ -388,4 +390,8 @@ def is_endgame(board):
             if piece.piece_type in [chess.QUEEN, chess.ROOK]:
                 has_major_piece = True
     total_material = white_material + black_material
+    if ai_color == chess.WHITE and black_material <= 100 and white_material >= 300:
+        return True
+    if ai_color == chess.BLACK and white_material <= 100 and black_material >= 300:
+        return True
     return total_material < 1200 or not has_major_piece
