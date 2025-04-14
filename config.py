@@ -18,6 +18,7 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
+ai_color = chess.BLACK
 DEFAULT_DEPTH = 4
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 
@@ -53,6 +54,7 @@ FEN_STRING_ENDGAME_7 = "1k6/1p4b1/8/8/8/8/8/4K3 w - - 0 1"
 #Test endgame 8 (Vua + Mã + Tốt vs Vua)
 FEN_STRING_ENDGAME_8 = "1k3n2/1p6/8/8/8/8/8/4K3 w - - 0 1"
 
+FEN_STRING_ENDGAME_9 = "4k3/2r2ppp/8/8/8/8/4K3/8 w - - 0 1"
 # Test blockage
 FEN_STRING_BLOCKAGE = '5k2/p3p1p1/8/8/3R4/8/1K6/8 w - - 0 1'
 
