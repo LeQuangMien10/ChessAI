@@ -14,4 +14,6 @@
 11:33 AM 14/4/2025: Sửa lỗi syzygy tablebase lần 1 (tạm thời)
 6:46 PM 14/4/2025: Chuyển sang dùng negamax
 10:31 PM 14/4/2025: Thêm Killer Move và History Table
-13.55 PM 14/4/2025: Thêm xử lý đa luồng các tiến trình
+1:55 PM 15/4/2025: Thêm xử lý đa luồng các tiến trình
+3:48 PM 15/4/2025: Sửa lỗi liên quan đến transposition_table.pkl
+3:55 PM 15/4/2025: Cập nhật file ảnh
