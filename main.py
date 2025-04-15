@@ -5,14 +5,7 @@ from menu import *
 from game import *
 from minimax import get_best_move, save_history_table, decay_history_table
 from minimax import save_transposition_table
-
-pygame.init()
-
-screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
-pygame.display.set_caption("Chess")
-
-game_mode = get_game_mode(screen)
-
+from minimax import print_move_times
 
 def handle_game_end():
     global running
@@ -146,28 +139,40 @@ def player_vs_player():
             handle_game_end()
             break
 
-board = chess.Board() # Thêm Fen_string trong config để test
-selected_square = None
-legal_moves = []
-clock = pygame.time.Clock()
-running = True
+# Bọc hàm main
 
 
-while running:
-    clock.tick(60)
-    update_screen()
-    if game_mode == TWO_PLAYERS:
-        player_vs_player()
-    elif game_mode == TWO_AIS:
-        ai_vs_ai()
-    elif game_mode == PLAYER_VS_AI:
-        player_vs_ai()
-    elif game_mode == AI_VS_PLAYER:
-        ai_vs_player()
-    save_history_table()
-    decay_history_table()
-    save_transposition_table()
+def main():
+    global board, selected_square, legal_moves, clock, running, screen, game_mode
+    pygame.init()
+    screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
+    pygame.display.set_caption("Chess")
 
-pygame.quit()
+    game_mode = get_game_mode(screen)
+    board = chess.Board()
+    selected_square = None
+    legal_moves = []
+    clock = pygame.time.Clock()
+    running = True
 
-# TODO: Killer Moves and History Heuristics
+    while running:
+        clock.tick(60)
+        update_screen()
+        if game_mode == TWO_PLAYERS:
+            player_vs_player()
+        elif game_mode == TWO_AIS:
+            ai_vs_ai()
+        elif game_mode == PLAYER_VS_AI:
+            player_vs_ai()
+        elif game_mode == AI_VS_PLAYER:
+            ai_vs_player()
+        save_history_table()
+        decay_history_table()
+        save_transposition_table()
+
+    print_move_times()
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()

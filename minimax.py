@@ -2,12 +2,15 @@ import pickle
 import time
 import os
 import chess.syzygy
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import config
 from config import *
 from transposition_table import compute_zorbist_hash
 
 KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
+
+# List to store move times
+MOVE_TIMES = []
 
 HISTORY_TABLE = {}
 if os.path.exists(HISTORY_TABLE_FILE):
@@ -260,53 +263,78 @@ def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
 
+def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color):
+    board = chess.Board(board_fen)
+    move = chess.Move.from_uci(move_uci)
+
+    # Kiểm tra nếu nước đi dẫn đến hòa ba lần lặp
+    if is_threefold_repetition_if_move(board, move):
+        white_score, black_score = material_score(board)
+        if ai_color_ == chess.BLACK:
+            if black_score >= white_score + 100:
+                return (move_uci, -float('inf'))  # Tránh hòa
+            elif black_score <= white_score - 200:
+                return (move_uci, float('inf'))   # Chấp nhận hòa
+        else:
+            if white_score >= black_score + 100:
+                return (move_uci, -float('inf'))
+            elif white_score <= black_score - 200:
+                return (move_uci, float('inf'))
+
+    board.push(move)
+
+    # Dùng Tablebase nếu còn ít quân
+    if piece_count <= 5 and not has_pawn(board, ai_color_):
+        evaluation = evaluate_with_tablebase(board, ai_color_)
+    else:
+        evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
+
+    return (move_uci, evaluation)
+
+
 def get_best_move(board, depth=3, ai_color_=chess.WHITE):
     start_time = time.time()
 
-    # Reset Killer Moves
     global KILLER_MOVES
     KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
 
-    # Đếm số quân cờ
     piece_count = count_pieces(board)
-
     best_move = None
     best_value = -float('inf')
     color = 1 if board.turn == ai_color_ else -1
 
-    for move in order_moves(board, depth):
-        # Kiểm tra nếu đi nước này sẽ dẫn đến hòa 3 lần lặp
-        if is_threefold_repetition_if_move(board, move):
-            white_score, black_score = material_score(board)
-            print("white: " + str(white_score))
-            print("black: " + str(black_score))
+    board_fen = board.fen()
+    possible_moves = list(order_moves(board, depth))
 
-            if ai_color_ == chess.BLACK:
-                if black_score >= white_score + 100:
-                    continue  # Đen đang lợi thế → tránh hòa
-                elif black_score <= white_score - 200:
-                    return move  # Đen thua nặng → chấp nhận hòa
-            else:
-                if white_score >= black_score + 100:
-                    continue
-                elif white_score <= black_score - 200:
-                    return move
+    with ProcessPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                evaluate_move_in_process,
+                board_fen,
+                move.uci(),
+                depth,
+                ai_color_,
+                piece_count,
+                color
+            )
+            for move in possible_moves
+        ]
 
-        # Đánh giá nước đi
-        board.push(move)
-        # Dùng Tablebase cho ≤ 5 quân, nếu không thì Minimax
-        if piece_count <= 5 and not has_pawn(board, ai_color_):
-            evaluation = evaluate_with_tablebase(board, ai_color_)
-        else:
-            evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
+        for future in as_completed(futures):
+            move_uci, evaluation = future.result()
 
-        board.pop()
+            if evaluation >= best_value:
+                best_value = evaluation
+                best_move = chess.Move.from_uci(move_uci)
+                
+                #Cập nhật History_table để các hàm con chạy song song dùng phiên bản mới nhất
+                move_key = (best_move.from_square, best_move.to_square)
+                HISTORY_TABLE[move_key] = HISTORY_TABLE.get(move_key, 0) + (depth * depth)
 
-        if evaluation >= best_value:
-            best_value = evaluation
-            best_move = move
-
-    print(f"Time: {time.time() - start_time:.2f}s")
+    move_time = time.time() - start_time
+    MOVE_TIMES.append(move_time)
+    
+    print(f"Time: {move_time:.2f}s")
     san = board.san(best_move) if best_move else 'None'
     print(f"Best move: {san} | Value: {best_value:.2f}")
     return best_move
@@ -438,3 +466,16 @@ def is_endgame(board):
                 has_major_piece = True
     total_material = white_material + black_material
     return total_material < 1200 or not has_major_piece
+
+
+def print_move_times():
+    """Print move times statistics when program exits"""
+    if MOVE_TIMES:
+        print("\nMove Times Statistics:")
+        print(f"Total moves: {len(MOVE_TIMES)}")
+        print(f"Average time: {sum(MOVE_TIMES)/len(MOVE_TIMES):.2f}s")
+        print(f"Min time: {min(MOVE_TIMES):.2f}s")
+        print(f"Max time: {max(MOVE_TIMES):.2f}s")
+        print("\nIndividual move times:")
+        for i, t in enumerate(MOVE_TIMES, 1):
+            print(f"Move {i}: {t:.2f}s")
