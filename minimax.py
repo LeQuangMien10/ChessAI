@@ -262,7 +262,7 @@ def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
-
+#Hàm chạy trong tiến trình con
 def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color):
     board = chess.Board(board_fen)
     move = chess.Move.from_uci(move_uci)
@@ -305,8 +305,9 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
 
     board_fen = board.fen()
     possible_moves = list(order_moves(board, depth))
-
-    with ProcessPoolExecutor() as executor:
+    max_workers = max(1, int(os.cpu_count() * 0.75))
+    #Chia công việc thành nhiều tiến trình
+    with ProcessPoolExecutor(max_workers) as executor:
         futures = [
             executor.submit(
                 evaluate_move_in_process,
@@ -319,10 +320,11 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
             )
             for move in possible_moves
         ]
-
+        #Thu thập kết quả
         for future in as_completed(futures):
             move_uci, evaluation = future.result()
-
+            
+            #Bước này dùng để so sánh giá trị,nước đi tốt nhất
             if evaluation >= best_value:
                 best_value = evaluation
                 best_move = chess.Move.from_uci(move_uci)
