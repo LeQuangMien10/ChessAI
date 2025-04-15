@@ -149,7 +149,7 @@ def main():
     pygame.display.set_caption("Chess")
 
     game_mode = get_game_mode(screen)
-    board = chess.Board()
+    board = chess.Board(FEN_STRING_ENDGAME_HAVE_PAWN_1)
     selected_square = None
     legal_moves = []
     clock = pygame.time.Clock()

@@ -57,6 +57,8 @@ FEN_STRING_ENDGAME_8 = "1k3n2/1p6/8/8/8/8/8/4K3 w - - 0 1"
 
 FEN_STRING_ENDGAME_9 = "4k3/2r2ppp/8/8/8/8/4K3/8 w - - 0 1"
 
+#Test end game have pawn
+FEN_STRING_ENDGAME_HAVE_PAWN_1 = "5k2/2rp4/6p1/8/8/8/8/7K w - - 0 1"
 # Test blockage
 FEN_STRING_BLOCKAGE = '5k2/p3p1p1/8/8/3R4/8/1K6/8 w - - 0 1'
 

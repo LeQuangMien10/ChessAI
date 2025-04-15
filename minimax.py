@@ -350,6 +350,7 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
 def move_score(board, move):
     score = 0
+
     if is_important_move(board, move):
         score += 1000
 
@@ -404,9 +405,29 @@ def is_important_move(board, move):
     return False
 
 
-def order_moves(board, depth):
-    moves = list(board.legal_moves)
+def promote_pawn_aggressively(board, ai_color_):
+    promotion_moves = []
 
+    for move in board.legal_moves:
+        # Kiểm tra xem có phải nước đi của tốt không
+        piece = board.piece_at(move.from_square)
+        if piece and piece.piece_type == chess.PAWN and piece.color == ai_color_:
+                promotion_moves.append((move, move_score(board, move)))
+
+    # Sắp xếp các nước theo điểm số để chọn nước tốt nhất
+    promotion_moves.sort(key=lambda x: x[1], reverse=True)
+
+    return [move for move, _ in promotion_moves]
+
+
+def order_moves(board, depth):
+    if is_wining_change(board, ai_color_ = chess.BLACK):
+        print("Winning change...")
+        aggressive_promotions = promote_pawn_aggressively(board, ai_color_=chess.BLACK)
+        if aggressive_promotions:
+            return aggressive_promotions  # Ưu tiên đẩy tốt lên nếu có nước hợp lệ
+
+    moves = list(board.legal_moves)
     # Tính điểm cho từng nước đi
     # scored_moves = [(move, move_score(board, move)) for move in moves]
     scored_moves = []
@@ -449,6 +470,28 @@ def material_score(board):
                 black_score += value
 
     return white_score, black_score
+
+#Thế sắp thắng
+def is_wining_change(board, ai_color_=chess.BLACK):
+    white_material, black_material = material_score(board)
+
+    white_pawn_count = len(board.pieces(chess.PAWN, chess.WHITE))
+    print("Tốt trắng:" + str(white_pawn_count))
+    black_pawn_count = len(board.pieces(chess.PAWN, chess.BLACK))
+    print("Tốt đen:" + str(black_pawn_count))
+
+    white_score_without_pawns = white_material - 100 * white_pawn_count
+    print("Gtri trắng: " + str(white_score_without_pawns))
+    black_score_without_pawns = black_material - 100 * black_pawn_count
+    print("Gtri đen: " + str(black_score_without_pawns))
+
+    print("_________________")
+    if ai_color_ == chess.WHITE and black_material == 0 and white_score_without_pawns >= 500:
+        return True
+    if ai_color_ == chess.BLACK and white_material == 0 and black_score_without_pawns >= 500:
+        return True
+
+    return False
 
 
 def is_endgame(board):
