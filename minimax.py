@@ -6,6 +6,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import config
 from config import *
 from transposition_table import compute_zorbist_hash
+import multiprocessing
 
 KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
 
@@ -34,27 +35,31 @@ def decay_history_table(factor=0.5):
     HISTORY_TABLE = {k: int(v * factor) for k, v in HISTORY_TABLE.items()}
 
 def save_transposition_table(min_depth=3):
-    # Đọc bảng cũ nếu có
-    old_table = {}
-    if os.path.exists(TRANSPOSITION_FILE):
-        with open(TRANSPOSITION_FILE, "rb") as file:
-            old_table = pickle.load(file)
+    if multiprocessing.current_process().name != "MainProcess":
+        return
+    try:
+        # Đọc bảng cũ nếu có
+        old_table = {}
+        if os.path.exists(TRANSPOSITION_FILE):
+            with open(TRANSPOSITION_FILE, "rb") as file:
+                old_table = pickle.load(file)
 
-    # Gộp bảng cũ và mới, ưu tiên entry có value cao hơn
-    merged_table = old_table.copy()
-    for k, v in transposition_table.items():
-        if (k not in merged_table) or (v["value"] > merged_table[k]["value"]):
-            merged_table[k] = v
+        # Gộp bảng cũ và mới, ưu tiên entry có value cao hơn
+        merged_table = old_table.copy()
+        for k, v in transposition_table.items():
+            if (k not in merged_table) or (v["value"] > merged_table[k]["value"]):
+                merged_table[k] = v
 
-    # Lọc theo độ sâu
-    filtered_table = {
-        k: v for k, v in merged_table.items() if v["depth"] >= min_depth
-    }
+        # Lọc theo độ sâu
+        filtered_table = {
+            k: v for k, v in merged_table.items() if v["depth"] >= min_depth
+        }
 
-    # Ghi đè sau khi merge
-    with open(TRANSPOSITION_FILE, "wb") as file:
-        pickle.dump(filtered_table, file)
-
+        # Ghi đè sau khi merge
+        with open(TRANSPOSITION_FILE, "wb") as file:
+            pickle.dump(filtered_table, file)
+    except Exception as e:
+        print(f"Lỗi khi lưu Transposition Table: {e}")
 
 def manhattan_distance(square1, square2):
     """
@@ -289,7 +294,7 @@ def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count,
     else:
         evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
 
-    return (move_uci, evaluation)
+    return move_uci, evaluation
 
 
 def get_best_move(board, depth=3, ai_color_=chess.WHITE):
@@ -324,7 +329,7 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
         for future in as_completed(futures):
             move_uci, evaluation = future.result()
             
-            #Bước này dùng để so sánh giá trị,nước đi tốt nhất
+            #Bước này dùng để so sánh giá trị, nước đi tốt nhất
             if evaluation >= best_value:
                 best_value = evaluation
                 best_move = chess.Move.from_uci(move_uci)
