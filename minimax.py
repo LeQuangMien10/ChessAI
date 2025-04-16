@@ -298,7 +298,7 @@ def has_pawn(board, color):
 
 
 # Sử dụng Manager để chia sẻ HISTORY_TABLE giữa các tiến trình
-def get_best_move(board, depth=3, ai_color_=chess.WHITE):
+def get_best_move(board, depth=4, ai_color_=chess.WHITE):
     start_time = time.time()
 
     global KILLER_MOVES
@@ -313,41 +313,38 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
     possible_moves = list(order_moves(board, depth))
     max_workers = max(1, int(os.cpu_count() * 0.75))
 
-    # Sử dụng Manager để chia sẻ bảng HISTORY_TABLE
-    with Manager() as manager:
-        shared_history_table = manager.dict(HISTORY_TABLE)  # Sử dụng shared_history_table
+    # Chạy song song các tiến trình
+    with ProcessPoolExecutor(max_workers) as executor:
+        futures = [
+            executor.submit(
+                evaluate_move_in_process,
+                board_fen,
+                move.uci(),
+                depth,
+                ai_color_,
+                piece_count,
+                color
+            )
+            for move in possible_moves
+        ]
 
-        # Chia công việc thành nhiều tiến trình
-        with ProcessPoolExecutor(max_workers) as executor:
-            futures = [
-                executor.submit(
-                    evaluate_move_in_process,
-                    board_fen,
-                    move.uci(),
-                    depth,
-                    ai_color_,
-                    piece_count,
-                    color,
-                    shared_history_table  # Truyền shared_history_table vào tiến trình con
-                )
-                for move in possible_moves
-            ]
-            
-            # Thu thập kết quả và cập nhật shared_history_table
-            for future in as_completed(futures):
-                move_uci, evaluation = future.result()
+        # Gom kết quả và tổng hợp lại history_table
+        history_delta_total = {}
+        for future in as_completed(futures):
+            move_uci, evaluation, history_delta = future.result()
 
-                # Bước này dùng để so sánh giá trị, nước đi tốt nhất
-                if evaluation >= best_value:
-                    best_value = evaluation
-                    best_move = chess.Move.from_uci(move_uci)
-                    
-                    # Cập nhật shared_history_table để các hàm con chạy song song dùng phiên bản mới nhất
-                    move_key = (best_move.from_square, best_move.to_square)
-                    shared_history_table[move_key] = shared_history_table.get(move_key, 0) + (depth * depth)
+            # Chọn best move
+            if evaluation >= best_value:
+                best_value = evaluation
+                best_move = chess.Move.from_uci(move_uci)
 
-        # Cập nhật lại HISTORY_TABLE trong tiến trình chính từ shared_history_table
-        HISTORY_TABLE.update(shared_history_table)
+            # Gom các cập nhật từ history_delta
+            for key, value in history_delta.items():
+                history_delta_total[key] = history_delta_total.get(key, 0) + value
+
+        # Cập nhật lại HISTORY_TABLE một cách an toàn
+        for key, value in history_delta_total.items():
+            HISTORY_TABLE[key] = HISTORY_TABLE.get(key, 0) + value
 
     move_time = time.time() - start_time
     MOVE_TIMES.append(move_time)
@@ -357,38 +354,39 @@ def get_best_move(board, depth=3, ai_color_=chess.WHITE):
     print(f"Best move: {san} | Value: {best_value:.2f}")
     return best_move
 
+
 # Cập nhật hàm evaluate_move_in_process để nhận shared_history_table
-def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color, shared_history_table):
+def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color):
     board = chess.Board(board_fen)
     move = chess.Move.from_uci(move_uci)
+    history_delta = {}
 
-    # Kiểm tra nếu nước đi dẫn đến hòa ba lần lặp
     if is_threefold_repetition_if_move(board, move):
         white_score, black_score = material_score(board)
         if ai_color_ == chess.BLACK:
             if black_score >= white_score + 100:
-                return (move_uci, -float('inf'))  # Tránh hòa
+                return (move_uci, -float('inf'), {})
             elif black_score <= white_score - 200:
-                return (move_uci, float('inf'))   # Chấp nhận hòa
+                return (move_uci, float('inf'), {})
         else:
             if white_score >= black_score + 100:
-                return (move_uci, -float('inf'))
+                return (move_uci, -float('inf'), {})
             elif white_score <= black_score - 200:
-                return (move_uci, float('inf'))
+                return (move_uci, float('inf'), {})
 
     board.push(move)
 
-    # Dùng Tablebase nếu còn ít quân
+    # Dùng tablebase nếu cần
     if piece_count <= 5 and not has_pawn(board, ai_color_):
         evaluation = evaluate_with_tablebase(board, ai_color_)
     else:
         evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
 
-    # Cập nhật shared_history_table thay vì HISTORY_TABLE trực tiếp
+    # Cập nhật local history delta
     move_key = (move.from_square, move.to_square)
-    shared_history_table[move_key] = shared_history_table.get(move_key, 0) + (depth * depth)
+    history_delta[move_key] = depth * depth
 
-    return move_uci, evaluation
+    return move_uci, evaluation, history_delta
 
 
 
