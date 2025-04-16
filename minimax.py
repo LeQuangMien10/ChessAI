@@ -7,6 +7,7 @@ import config
 from config import *
 from transposition_table import compute_zorbist_hash
 import multiprocessing
+from multiprocessing import Manager
 
 KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
 
@@ -267,8 +268,97 @@ def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
-#Hàm chạy trong tiến trình con
-def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Sử dụng Manager để chia sẻ HISTORY_TABLE giữa các tiến trình
+def get_best_move(board, depth=3, ai_color_=chess.WHITE):
+    start_time = time.time()
+
+    global KILLER_MOVES
+    KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
+
+    piece_count = count_pieces(board)
+    best_move = None
+    best_value = -float('inf')
+    color = 1 if board.turn == ai_color_ else -1
+
+    board_fen = board.fen()
+    possible_moves = list(order_moves(board, depth))
+    max_workers = max(1, int(os.cpu_count() * 0.75))
+
+    # Sử dụng Manager để chia sẻ bảng HISTORY_TABLE
+    with Manager() as manager:
+        shared_history_table = manager.dict(HISTORY_TABLE)  # Sử dụng shared_history_table
+
+        # Chia công việc thành nhiều tiến trình
+        with ProcessPoolExecutor(max_workers) as executor:
+            futures = [
+                executor.submit(
+                    evaluate_move_in_process,
+                    board_fen,
+                    move.uci(),
+                    depth,
+                    ai_color_,
+                    piece_count,
+                    color,
+                    shared_history_table  # Truyền shared_history_table vào tiến trình con
+                )
+                for move in possible_moves
+            ]
+            
+            # Thu thập kết quả và cập nhật shared_history_table
+            for future in as_completed(futures):
+                move_uci, evaluation = future.result()
+
+                # Bước này dùng để so sánh giá trị, nước đi tốt nhất
+                if evaluation >= best_value:
+                    best_value = evaluation
+                    best_move = chess.Move.from_uci(move_uci)
+                    
+                    # Cập nhật shared_history_table để các hàm con chạy song song dùng phiên bản mới nhất
+                    move_key = (best_move.from_square, best_move.to_square)
+                    shared_history_table[move_key] = shared_history_table.get(move_key, 0) + (depth * depth)
+
+        # Cập nhật lại HISTORY_TABLE trong tiến trình chính từ shared_history_table
+        HISTORY_TABLE.update(shared_history_table)
+
+    move_time = time.time() - start_time
+    MOVE_TIMES.append(move_time)
+
+    print(f"Time: {move_time:.2f}s")
+    san = board.san(best_move) if best_move else 'None'
+    print(f"Best move: {san} | Value: {best_value:.2f}")
+    return best_move
+
+# Cập nhật hàm evaluate_move_in_process để nhận shared_history_table
+def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color, shared_history_table):
     board = chess.Board(board_fen)
     move = chess.Move.from_uci(move_uci)
 
@@ -294,57 +384,31 @@ def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count,
     else:
         evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
 
+    # Cập nhật shared_history_table thay vì HISTORY_TABLE trực tiếp
+    move_key = (move.from_square, move.to_square)
+    shared_history_table[move_key] = shared_history_table.get(move_key, 0) + (depth * depth)
+
     return move_uci, evaluation
 
 
-def get_best_move(board, depth=3, ai_color_=chess.WHITE):
-    start_time = time.time()
 
-    global KILLER_MOVES
-    KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
 
-    piece_count = count_pieces(board)
-    best_move = None
-    best_value = -float('inf')
-    color = 1 if board.turn == ai_color_ else -1
 
-    board_fen = board.fen()
-    possible_moves = list(order_moves(board, depth))
-    max_workers = max(1, int(os.cpu_count() * 0.75))
-    #Chia công việc thành nhiều tiến trình
-    with ProcessPoolExecutor(max_workers) as executor:
-        futures = [
-            executor.submit(
-                evaluate_move_in_process,
-                board_fen,
-                move.uci(),
-                depth,
-                ai_color_,
-                piece_count,
-                color
-            )
-            for move in possible_moves
-        ]
-        #Thu thập kết quả
-        for future in as_completed(futures):
-            move_uci, evaluation = future.result()
-            
-            #Bước này dùng để so sánh giá trị, nước đi tốt nhất
-            if evaluation >= best_value:
-                best_value = evaluation
-                best_move = chess.Move.from_uci(move_uci)
-                
-                #Cập nhật History_table để các hàm con chạy song song dùng phiên bản mới nhất
-                move_key = (best_move.from_square, best_move.to_square)
-                HISTORY_TABLE[move_key] = HISTORY_TABLE.get(move_key, 0) + (depth * depth)
 
-    move_time = time.time() - start_time
-    MOVE_TIMES.append(move_time)
-    
-    print(f"Time: {move_time:.2f}s")
-    san = board.san(best_move) if best_move else 'None'
-    print(f"Best move: {san} | Value: {best_value:.2f}")
-    return best_move
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
