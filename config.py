@@ -18,7 +18,6 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
-AI_COLOR = chess.BLACK
 DEFAULT_DEPTH = 5
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 HISTORY_TABLE_FILE = 'history_table.pkl'

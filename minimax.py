@@ -276,35 +276,6 @@ def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Sử dụng Manager để chia sẻ HISTORY_TABLE giữa các tiến trình
 import pickle
 
