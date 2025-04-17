@@ -69,6 +69,8 @@ FEN_STRING_BLOCKAGE = '5k2/p3p1p1/8/8/3R4/8/1K6/8 w - - 0 1'
 # Test mate in 5
 FEN_STRING_MATE_IN_FIVE = '4rb1k/2pqn2p/6pn/ppp3N1/P1QP2b1/1P2p3/2B3PP/B3RRK1 w - - 0 1'
 
+FEN_STRING_BLUNDER_MATE = 'r4bkr/1p4p1/1nbp1q1p/p1p5/P1p2PP1/5N1P/1PBBQ3/2R1R1K1 w - - 0 1'
+
 PAWN_POSITION_BONUS = [
     [ 0,  0,  0,  0,  0,  0,  0,  0],
     [50, 50, 50, 50, 50, 50, 50, 50],

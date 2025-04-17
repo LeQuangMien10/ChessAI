@@ -202,7 +202,7 @@ def negamax(board, depth, alpha, beta, color):
             board.push(move)
             if board.is_checkmate():
                 board.pop()
-                return float('inf') * color
+                return float('inf') * -color
             board.pop()
 
         board.push(move)
