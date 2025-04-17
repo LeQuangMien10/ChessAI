@@ -52,6 +52,15 @@ def player_vs_ai():
 
                     if not board.is_game_over():
                         handle_ai_turn(chess.BLACK)
+                else:
+                    # Nếu click vào ô không hợp lệ, cho phép chọn quân cờ khác
+                    piece_ = board.piece_at(square)
+                    if piece_ and piece_.color == board.turn:
+                        selected_square = square
+                        legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+                    else:
+                        selected_square = None
+                        legal_moves = []
         if board.is_game_over():
             handle_game_end()
             break
@@ -82,6 +91,15 @@ def ai_vs_player():
                     selected_square = None
                     legal_moves = []
                     update_screen()
+                else:
+                    # Nếu click vào ô không hợp lệ, cho phép chọn quân cờ khác
+                    piece_ = board.piece_at(square)
+                    if piece_ and piece_.color == board.turn:
+                        selected_square = square
+                        legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+                    else:
+                        selected_square = None
+                        legal_moves = []
         if board.is_game_over():
             handle_game_end()
             break
@@ -133,6 +151,15 @@ def player_vs_player():
                     selected_square = None
                     legal_moves = []
                     update_screen()
+                else:
+                    # Nếu click vào ô không hợp lệ, cho phép chọn quân cờ khác
+                    piece_ = board.piece_at(square)
+                    if piece_ and piece_.color == board.turn:
+                        selected_square = square
+                        legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+                    else:
+                        selected_square = None
+                        legal_moves = []
         if board.is_game_over():
             handle_game_end()
             break
