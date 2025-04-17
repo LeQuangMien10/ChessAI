@@ -8,7 +8,7 @@ for piece in chess.PIECE_SYMBOLS[1:]:  # 'p', 'n', 'b', 'r', 'q', 'k'
 
 
 # Hàm vẽ bàn cờ
-def draw_board(screen, selected_square=None, legal_moves=None):
+def draw_board(screen, selected_square=None, legal_moves=None, last_move=None, board=None):
     if legal_moves is None:
         legal_moves = []
 
@@ -36,6 +36,29 @@ def draw_board(screen, selected_square=None, legal_moves=None):
         col, row = chess.square_file(move), chess.square_rank(move)
         pygame.draw.circle(screen, MOVE_HIGHLIGHT[:3],
                            (col * SQUARE_SIZE + SQUARE_SIZE // 2, (7 - row) * SQUARE_SIZE + SQUARE_SIZE // 2), 10)
+
+    # Highlight nước đi cuối cùng
+    if last_move and board:
+        # Xác định màu của quân cờ vừa đi
+        piece = board.piece_at(last_move.to_square)
+        if piece and piece.color == chess.WHITE:
+            highlight_color = (173, 216, 230, 128)  # Màu xanh nhạt cho quân trắng
+        else:
+            highlight_color = (255, 182, 193, 128)  # Màu đỏ nhạt cho quân đen
+
+        # Vẽ ô bắt đầu
+        start_col, start_row = chess.square_file(last_move.from_square), chess.square_rank(last_move.from_square)
+        start_rect = pygame.Rect(start_col * SQUARE_SIZE, (7 - start_row) * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+        highlight_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+        highlight_surface.fill(highlight_color)
+        screen.blit(highlight_surface, start_rect)
+
+        # Vẽ ô kết thúc
+        end_col, end_row = chess.square_file(last_move.to_square), chess.square_rank(last_move.to_square)
+        end_rect = pygame.Rect(end_col * SQUARE_SIZE, (7 - end_row) * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+        highlight_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
+        highlight_surface.fill(highlight_color)
+        screen.blit(highlight_surface, end_rect)
 
 
 

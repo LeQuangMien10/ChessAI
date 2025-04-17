@@ -20,8 +20,9 @@ def handle_game_end():
 
 
 def update_screen():
-    screen.fill((0, 0, 0))
-    draw_board(screen, selected_square, legal_moves)
+    screen.fill(WHITE)
+    last_move = board.peek() if board.move_stack else None
+    draw_board(screen, selected_square, legal_moves, last_move, board)
     draw_pieces(screen, board)
     pygame.display.flip()
 
@@ -45,13 +46,12 @@ def player_vs_ai():
                 promote_pawn(board, move, screen)
                 if move in board.legal_moves:
                     board.push(move)
+                    selected_square = None
+                    legal_moves = []
                     update_screen()
 
                     if not board.is_game_over():
                         handle_ai_turn(chess.BLACK)
-
-                selected_square = None
-                legal_moves = []
         if board.is_game_over():
             handle_game_end()
             break
@@ -79,10 +79,9 @@ def ai_vs_player():
                 promote_pawn(board, move, screen)
                 if move in board.legal_moves:
                     board.push(move)
+                    selected_square = None
+                    legal_moves = []
                     update_screen()
-
-                selected_square = None
-                legal_moves = []
         if board.is_game_over():
             handle_game_end()
             break
@@ -131,10 +130,9 @@ def player_vs_player():
                 promote_pawn(board, move, screen)
                 if move in board.legal_moves:
                     board.push(move)
+                    selected_square = None
+                    legal_moves = []
                     update_screen()
-
-                selected_square = None
-                legal_moves = []
         if board.is_game_over():
             handle_game_end()
             break
