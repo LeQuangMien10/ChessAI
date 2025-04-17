@@ -7,7 +7,6 @@ import config
 from config import *
 from transposition_table import compute_zorbist_hash
 import multiprocessing
-from multiprocessing import Manager
 
 KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
 
@@ -26,14 +25,17 @@ if os.path.exists(TRANSPOSITION_FILE):
 else:
     transposition_table = {}
 
+
 def save_history_table(min_score=100):
     filtered_table = {k: v for k, v in HISTORY_TABLE.items() if v >= min_score}
     with open(HISTORY_TABLE_FILE, "wb") as file:
         pickle.dump(filtered_table, file)
 
+
 def decay_history_table(factor=0.5):
     global HISTORY_TABLE
     HISTORY_TABLE = {k: int(v * factor) for k, v in HISTORY_TABLE.items()}
+
 
 def save_transposition_table(min_depth=3):
     if multiprocessing.current_process().name != "MainProcess":
@@ -61,6 +63,7 @@ def save_transposition_table(min_depth=3):
             pickle.dump(filtered_table, file)
     except Exception as e:
         print(f"Lỗi khi lưu Transposition Table: {e}")
+
 
 def manhattan_distance(square1, square2):
     """
@@ -194,19 +197,18 @@ def negamax(board, depth, alpha, beta, color):
 
     max_value = -float('inf')
     for move in order_moves(board, depth):
-        #Phát hiện chiếu hết sau 50
+        # Phát hiện chiếu hết sau 50
         if len(board.move_stack) >= 50:
             board.push(move)
             if board.is_checkmate():
                 board.pop()
-                return 100000 * color
+                return float('inf') * color
             board.pop()
 
         board.push(move)
         value = -negamax(board, depth - 1, -beta, -alpha, -color)
         board.pop()
 
-        # max_value = max(max_value, value)
         if value > max_value:
             max_value = value
             move_key = (move.from_square, move.to_square)
@@ -276,14 +278,16 @@ def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
 
+
 # Sử dụng Manager để chia sẻ HISTORY_TABLE giữa các tiến trình
 import pickle
 
-def get_best_move(board, depth=4, ai_color_=chess.WHITE):
+
+def get_best_move(board, depth, ai_color_):
     start_time = time.time()
 
     global KILLER_MOVES
-    KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
+    KILLER_MOVES = [{} for _ in range(depth + 1)]
 
     piece_count = count_pieces(board)
     best_move = None
@@ -332,7 +336,6 @@ def get_best_move(board, depth=4, ai_color_=chess.WHITE):
     return best_move
 
 
-
 # Cập nhật hàm evaluate_move_in_process để nhận shared_history_table
 def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_count, color):
     board = pickle.loads(board_bytes)  # khôi phục lại chess.Board
@@ -343,14 +346,14 @@ def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_coun
         white_score, black_score = material_score(board)
         if ai_color_ == chess.BLACK:
             if black_score >= white_score + 100:
-                return (move_uci, -float('inf'), {})
+                return move_uci, -float('inf'), {}
             elif black_score <= white_score - 200:
-                return (move_uci, float('inf'), {})
+                return move_uci, float('inf'), {}
         else:
             if white_score >= black_score + 100:
-                return (move_uci, -float('inf'), {})
+                return move_uci, -float('inf'), {}
             elif white_score <= black_score - 200:
-                return (move_uci, float('inf'), {})
+                return move_uci, float('inf'), {}
 
     board.push(move)
 
@@ -363,27 +366,6 @@ def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_coun
     history_delta[move_key] = depth * depth
 
     return move_uci, evaluation, history_delta
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
@@ -451,7 +433,7 @@ def promote_pawn_aggressively(board, ai_color_):
         # Kiểm tra xem có phải nước đi của tốt không
         piece = board.piece_at(move.from_square)
         if piece and piece.piece_type == chess.PAWN and piece.color == ai_color_:
-                promotion_moves.append((move, move_score(board, move)))
+            promotion_moves.append((move, move_score(board, move)))
 
     # Sắp xếp các nước theo điểm số để chọn nước tốt nhất
     promotion_moves.sort(key=lambda x: x[1], reverse=True)
@@ -460,7 +442,7 @@ def promote_pawn_aggressively(board, ai_color_):
 
 
 def order_moves(board, depth):
-    if is_wining_change(board, ai_color_ = chess.BLACK):
+    if is_wining_change(board, ai_color_=chess.BLACK):
         print("Winning change...")
         aggressive_promotions = promote_pawn_aggressively(board, ai_color_=chess.BLACK)
         if aggressive_promotions:
@@ -496,7 +478,6 @@ def is_threefold_repetition_if_move(board, move):
     return False
 
 
-
 # Hàm tính giá trị quân còn lại trên bàn
 def material_score(board):
     white_score = 0
@@ -513,7 +494,8 @@ def material_score(board):
 
     return white_score, black_score
 
-#Thế sắp thắng
+
+# Thế sắp thắng
 def is_wining_change(board, ai_color_=chess.BLACK):
     white_material, black_material = material_score(board)
 
@@ -560,7 +542,7 @@ def print_move_times():
     if MOVE_TIMES:
         print("\nMove Times Statistics:")
         print(f"Total moves: {len(MOVE_TIMES)}")
-        print(f"Average time: {sum(MOVE_TIMES)/len(MOVE_TIMES):.2f}s")
+        print(f"Average time: {sum(MOVE_TIMES) / len(MOVE_TIMES):.2f}s")
         print(f"Min time: {min(MOVE_TIMES):.2f}s")
         print(f"Max time: {max(MOVE_TIMES):.2f}s")
         print("\nIndividual move times:")
