@@ -102,6 +102,142 @@ def mop_up_evaluation(board, ai_color_):
 
     return evaluation
 
+def static_exchange_evaluation(board, move):
+    """
+    Tính giá trị ròng của chuỗi ăn quân trên ô đích.
+    :param board: Bàn cờ
+    :param move: Nước đi
+    :return: giá trị chuỗi ăn quân
+    """
+    target_square = move.to_square
+    captured_piece = board.piece_at(target_square)
+    if not captured_piece:
+        return 0
+    gain = config.PIECE_VALUES[captured_piece.piece_type]
+
+    # Danh sách quân tấn công và bảo vệ
+    attackers = board.attackers(board.turn, target_square)
+    defenders = board.attackers(not board.turn, target_square)
+
+    if not attackers:
+        return gain
+
+    # Lấy quân tấn công nhỏ nhất
+    min_attacker_value = float('inf')
+    min_attacker_square = None
+    for square in attackers:
+        piece = board.piece_at(square)
+        if piece and config.PIECE_VALUES[piece.piece_type] < min_attacker_value:
+            min_attacker_value = config.PIECE_VALUES[piece.piece_type]
+            min_attacker_square = square
+    if min_attacker_square is None:
+        return gain
+
+    # Mô phỏng nước ăn
+    board.push(move)
+    next_move = chess.Move(min_attacker_square, target_square)
+    if next_move in board.legal_moves:
+        score = max(0, gain - static_exchange_evaluation(board, next_move))
+    else:
+        score = gain
+    board.pop()
+    return score
+
+def quiescence_search(board, alpha, beta, color, ai_color_):
+    """
+    Đánh giá các vị trí 'yên tĩnh', chỉ xem xét các nước đi quan trọng.
+    :param board: Bàn cờ
+    :param alpha: ngưỡng alpha
+    :param beta: ngưỡng beta
+    :param color: 1 cho tối đa hóa ai_color_, -1 nếu ngược lại
+    :param ai_color_: Màu của AI
+    :return: Giá trị đánh giá tốt nhất
+    """
+
+    # Tính giá trị tại vị trí tĩnh hiện tại
+    piece_count = count_pieces(board)
+    if piece_count <= 5 and not has_pawn(board, ai_color_):
+        stand_pat = evaluate_with_tablebase(board, ai_color_) * color
+    else:
+        stand_pat = evaluate_board(board, ai_color_) * color
+
+    if stand_pat >= beta:
+        return beta
+    if stand_pat > alpha:
+        alpha = stand_pat
+
+    # Lấy các nước đi quan trọng (ăn quân hoặc chiếu)
+    important_moves = []
+    for move in board.legal_moves:
+        if board.is_capture(move) or board.gives_check(move):
+            see_score = static_exchange_evaluation(board, move)
+            if board.is_capture(move) and see_score < 0:
+                continue
+            important_moves.append((move, move_score(board, move)))
+
+    # Sắp xếp các nước đi theo điểm số
+    important_moves.sort(key=lambda x: x[1], reverse=True)
+
+    # Duyệt qua các nước đi
+    for move, _ in important_moves:
+        board.push(move)
+        score = -quiescence_search(board, -beta, -alpha, -color, ai_color_)
+        board.pop()
+
+        if score >= beta:
+            return beta
+        if score > alpha:
+            alpha = score
+
+    return alpha
+
+def evaluate_pawn_structure(board, ai_color_):
+    evaluation = 0
+    for color in [chess.WHITE, chess.BLACK]:
+        pawns = board.pieces(chess.PAWN, color)
+        isolated = doubled = passed = 0
+        for square in pawns:
+            file = chess.square_file(square)
+            rank = chess.square_rank(square)
+            # Tốt cô lập
+            has_neighbor = False
+            for neighbor_file in [file - 1, file + 1]:
+                if 0 <= neighbor_file <= 7:  # Kiểm tra phạm vi hợp lệ
+                    if any(board.piece_at(chess.square(neighbor_file, r)) == chess.Piece(chess.PAWN, color) for r in range(8)):
+                        has_neighbor = True
+                        break
+            if not has_neighbor:
+                isolated += 1
+            # Tốt đôi
+            for other_square in pawns:
+                if other_square != square and chess.square_file(other_square) == file:
+                    doubled += 1
+            # Tốt thông thoáng
+            is_passed = True
+            for opp_pawn in board.pieces(chess.PAWN, not color):
+                opp_file = chess.square_file(opp_pawn)
+                opp_rank = chess.square_rank(opp_pawn)
+                if abs(opp_file - file) <= 1:
+                    if (color == chess.WHITE and opp_rank > rank) or (color == chess.BLACK and opp_rank < rank):
+                        is_passed = False
+                        break
+            if is_passed:
+                passed += 1
+        penalty = isolated * 20 + doubled * 10
+        bonus = passed * 30
+        evaluation += (-penalty + bonus) if color == ai_color_ else (penalty - bonus)
+    return evaluation
+
+def evaluate_mobility(board, ai_color_):
+    evaluation = 0
+    for color in [chess.WHITE, chess.BLACK]:
+        mobility = sum(len(list(board.generate_legal_moves(from_mask=1 << square)))
+                      for square in board.piece_map()
+                      if board.piece_at(square) and board.piece_at(square).color == color)
+        bonus = mobility * 2
+        evaluation += bonus if color == ai_color_ else -bonus
+    return evaluation
+
 
 def evaluate_board(board_, ai_color_):
     """
@@ -132,6 +268,14 @@ def evaluate_board(board_, ai_color_):
                 evaluation += 10
             else:
                 evaluation -= 10
+
+    # Cấu trúc Tốt
+    pawn_structure_score = evaluate_pawn_structure(board_, ai_color_)
+    evaluation += pawn_structure_score
+
+    # Tính cơ động
+    mobility_score = evaluate_mobility(board_, ai_color_)
+    evaluation += mobility_score
 
     # 3. Giá trị + bonus vị trí
     for square in chess.SQUARES:
@@ -191,12 +335,13 @@ def negamax(board, depth, alpha, beta, color):
         return transposition_table[key]['value']
 
     if depth == 0 or board.is_game_over():
-        value = evaluate_board(board, ai_color_=board.turn if color == 1 else not board.turn) * color
+        value = quiescence_search(board, alpha, beta, color, ai_color_=board.turn if color == 1 else not board.turn)
         transposition_table[key] = {'value': value, 'depth': depth}
         return value
 
     max_value = -float('inf')
-    for move in order_moves(board, depth):
+    moves = order_moves(board, depth)
+    for i, move in enumerate(moves):
         # Phát hiện chiếu hết sau 50
         if len(board.move_stack) >= 50:
             board.push(move)
@@ -206,7 +351,16 @@ def negamax(board, depth, alpha, beta, color):
             board.pop()
 
         board.push(move)
-        value = -negamax(board, depth - 1, -beta, -alpha, -color)
+        # Late Move Reduction
+        if (i > 4 and depth >= 3 and not board.is_check() and not board.is_capture(move)
+                and not move.promotion) and not board.gives_check(move):
+            # Giảm 1 độ sâu
+            value = -negamax(board, depth - 1, -beta, -alpha, -color)
+            if alpha < value < beta:
+                # Tìm kiếm lại nếu cần
+                value = -negamax(board, depth - 1, -beta, -alpha, -color)
+        else:
+            value = -negamax(board, depth - 1, -beta, -alpha, -color)
         board.pop()
 
         if value > max_value:
@@ -217,7 +371,7 @@ def negamax(board, depth, alpha, beta, color):
         if alpha >= beta:
             if depth <= DEFAULT_DEPTH:
                 if move not in KILLER_MOVES[depth]:
-                    if len(KILLER_MOVES[depth]) >= 2:
+                    if len(KILLER_MOVES[depth]) >= 3:
                         KILLER_MOVES[depth].pop(list(KILLER_MOVES[depth].keys())[0])
                     KILLER_MOVES[depth][move] = True
                 move_key = (move.from_square, move.to_square)
@@ -283,11 +437,8 @@ def has_pawn(board, color):
 import pickle
 
 
-def get_best_move(board, depth, ai_color_):
+def get_best_move(board, depth, ai_color_, time_limit = 10.0):
     start_time = time.time()
-
-    global KILLER_MOVES
-    KILLER_MOVES = [{} for _ in range(depth + 1)]
 
     piece_count = count_pieces(board)
     best_move = None
@@ -315,6 +466,8 @@ def get_best_move(board, depth, ai_color_):
 
         history_delta_total = {}
         for future in as_completed(futures):
+            if time.time() - start_time > time_limit:
+                break
             move_uci, evaluation, history_delta = future.result()
 
             if evaluation >= best_value:
@@ -376,18 +529,31 @@ def move_score(board, move):
         score += 1000
 
     if board.is_capture(move):
-        captured = board.piece_at(move.to_square)
-        attacker = board.piece_at(move.from_square)
-        if captured and attacker:
-            score += 10 * config.PIECE_VALUES[captured.piece_type] - config.PIECE_VALUES[attacker.piece_type]
-        else:
-            score += 50
+        see_score = static_exchange_evaluation(board, move)
+        score += see_score * 10  # Tăng trọng số cho SEE
+        if see_score < 0:
+            score -= 500  # Phạt nước ăn không có lợi
 
     if move.promotion:
         score += 900
 
     if board.gives_check(move):
         score += 100
+
+    # Ưu tiên Xe vào cột mở
+    if board.piece_at(move.from_square) and board.piece_at(move.from_square).piece_type == chess.ROOK:
+        to_file = chess.square_file(move.to_square)
+        is_open = all(not board.piece_at(chess.square(to_file, r)) or board.piece_at(chess.square(to_file, r)).piece_type != chess.PAWN for r in range(8))
+        if is_open:
+            score += 50
+
+    # Ưu tiên Tốt tiến gần hàng phong cấp
+    if board.piece_at(move.from_square) and board.piece_at(move.from_square).piece_type == chess.PAWN:
+        rank = chess.square_rank(move.to_square)
+        if board.turn == chess.WHITE and rank >= 5:
+            score += (rank - 4) * 20
+        elif board.turn == chess.BLACK and rank <= 2:
+            score += (3 - rank) * 20
 
     return score
 
@@ -449,8 +615,6 @@ def order_moves(board, depth):
             return aggressive_promotions  # Ưu tiên đẩy tốt lên nếu có nước hợp lệ
 
     moves = list(board.legal_moves)
-    # Tính điểm cho từng nước đi
-    # scored_moves = [(move, move_score(board, move)) for move in moves]
     scored_moves = []
 
     for move in moves:
@@ -474,7 +638,7 @@ def is_threefold_repetition_if_move(board, move):
     board_copy = board.copy(stack=True)
     if move in board_copy.legal_moves:
         board_copy.push(move)
-        return board_copy.is_repetition(3)
+        return board_copy.is_repetition(2)
     return False
 
 
