@@ -19,3 +19,4 @@
 3:55 PM 15/4/2025: Cập nhật file ảnh
 12:04 AM 16/4/2025: Sửa checkmate lần 1 
 1:53 PM 16/4/2025: Thêm cơ chế share, gộp dữ liệu an toàn trong multithreading
+11:32 AM 17/4/2025: Sửa hòa sau 3 lần lặp, sửa checkmate lần 2

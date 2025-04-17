@@ -18,14 +18,15 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
-DEFAULT_DEPTH = 4
+AI_COLOR = chess.BLACK
+DEFAULT_DEPTH = 5
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 HISTORY_TABLE_FILE = 'history_table.pkl'
 
 # Board
 
 # Test tránh hòa do LẶP NƯỚC 1 (2 xe vs vua)
-FEN_STRING_THREEFOLD_REPEAT_1 = "8/8/8/8/1k6/8/r1r5/K7 w - - 0 1"
+FEN_STRING_THREEFOLD_REPEAT_1 = "8/p7/8/8/8/1k6/r4r2/K7 w - - 0 1"
 
 # Test tránh hòa do LẮP NƯỚC 2 (vua vs Mã+Xe)
 FEN_STRING_THREEFOLD_REPEAT_2 = "1K6/8/8/8/8/kn6/8/2r5 w - - 0 1"
@@ -59,6 +60,10 @@ FEN_STRING_ENDGAME_9 = "4k3/2r2ppp/8/8/8/8/4K3/8 w - - 0 1"
 
 #Test end game have pawn
 FEN_STRING_ENDGAME_HAVE_PAWN_1 = "5k2/2rp4/6p1/8/8/8/8/7K w - - 0 1"
+
+#Test checkmate in endgame
+FEN_STRING_ENDGAME_CHECKMATE = "1k6/p7/8/3P2r1/8/8/r7/2K5 w HAha - 0 1"
+
 # Test blockage
 FEN_STRING_BLOCKAGE = '5k2/p3p1p1/8/8/3R4/8/1K6/8 w - - 0 1'
 

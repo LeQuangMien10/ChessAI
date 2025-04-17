@@ -48,7 +48,7 @@ def player_vs_ai():
                     update_screen()
 
                     if not board.is_game_over():
-                        handle_ai_turn(chess.BLACK)
+                        handle_ai_turn()
 
                 selected_square = None
                 legal_moves = []
@@ -60,7 +60,7 @@ def player_vs_ai():
 def ai_vs_player():
     global running, selected_square, legal_moves
     if board.turn == chess.WHITE and not board.is_game_over():
-        handle_ai_turn(chess.WHITE)
+        handle_ai_turn()
 
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
@@ -88,8 +88,8 @@ def ai_vs_player():
             break
 
 
-def handle_ai_turn(ai_color):
-    best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color_=ai_color)
+def handle_ai_turn():
+    best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color_=AI_COLOR)
     if best_move:
         board.push(best_move)
     else:
@@ -102,11 +102,11 @@ def ai_vs_ai():
         if event_.type == pygame.QUIT:
             running = False
 
-    handle_ai_turn(chess.WHITE)
+    handle_ai_turn()
 
     if not board.is_game_over():
         update_screen()
-        handle_ai_turn(chess.BLACK)
+        handle_ai_turn()
     if board.is_game_over():
         handle_game_end()
         running = False
@@ -144,13 +144,14 @@ def player_vs_player():
 
 def main():
     global board, selected_square, legal_moves, clock, running, screen, game_mode
+    import os
+    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
     pygame.init()
     screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
     pygame.display.set_caption("Chess")
 
     game_mode = get_game_mode(screen)
-    # board = chess.Board(FEN_STRING_ENDGAME_HAVE_PAWN_1)
-    board = chess.Board()
+    board = chess.Board() # Sửa thế ở đây
     selected_square = None
     legal_moves = []
     clock = pygame.time.Clock()

@@ -194,6 +194,14 @@ def negamax(board, depth, alpha, beta, color):
 
     max_value = -float('inf')
     for move in order_moves(board, depth):
+        #Phát hiện chiếu hết sau 50
+        if len(board.move_stack) >= 50:
+            board.push(move)
+            if board.is_checkmate():
+                board.pop()
+                return 100000 * color
+            board.pop()
+
         board.push(move)
         value = -negamax(board, depth - 1, -beta, -alpha, -color)
         board.pop()
@@ -298,6 +306,8 @@ def has_pawn(board, color):
 
 
 # Sử dụng Manager để chia sẻ HISTORY_TABLE giữa các tiến trình
+import pickle
+
 def get_best_move(board, depth=4, ai_color_=chess.WHITE):
     start_time = time.time()
 
@@ -309,16 +319,16 @@ def get_best_move(board, depth=4, ai_color_=chess.WHITE):
     best_value = -float('inf')
     color = 1 if board.turn == ai_color_ else -1
 
-    board_fen = board.fen()
+    board_bytes = pickle.dumps(board)  # serialize nguyên bàn cờ
+
     possible_moves = list(order_moves(board, depth))
     max_workers = max(1, int(os.cpu_count() * 0.75))
 
-    # Chạy song song các tiến trình
     with ProcessPoolExecutor(max_workers) as executor:
         futures = [
             executor.submit(
                 evaluate_move_in_process,
-                board_fen,
+                board_bytes,
                 move.uci(),
                 depth,
                 ai_color_,
@@ -328,21 +338,17 @@ def get_best_move(board, depth=4, ai_color_=chess.WHITE):
             for move in possible_moves
         ]
 
-        # Gom kết quả và tổng hợp lại history_table
         history_delta_total = {}
         for future in as_completed(futures):
             move_uci, evaluation, history_delta = future.result()
 
-            # Chọn best move
             if evaluation >= best_value:
                 best_value = evaluation
                 best_move = chess.Move.from_uci(move_uci)
 
-            # Gom các cập nhật từ history_delta
             for key, value in history_delta.items():
                 history_delta_total[key] = history_delta_total.get(key, 0) + value
 
-        # Cập nhật lại HISTORY_TABLE một cách an toàn
         for key, value in history_delta_total.items():
             HISTORY_TABLE[key] = HISTORY_TABLE.get(key, 0) + value
 
@@ -355,9 +361,10 @@ def get_best_move(board, depth=4, ai_color_=chess.WHITE):
     return best_move
 
 
+
 # Cập nhật hàm evaluate_move_in_process để nhận shared_history_table
-def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count, color):
-    board = chess.Board(board_fen)
+def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_count, color):
+    board = pickle.loads(board_bytes)  # khôi phục lại chess.Board
     move = chess.Move.from_uci(move_uci)
     history_delta = {}
 
@@ -376,17 +383,16 @@ def evaluate_move_in_process(board_fen, move_uci, depth, ai_color_, piece_count,
 
     board.push(move)
 
-    # Dùng tablebase nếu cần
     if piece_count <= 5 and not has_pawn(board, ai_color_):
         evaluation = evaluate_with_tablebase(board, ai_color_)
     else:
         evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
 
-    # Cập nhật local history delta
     move_key = (move.from_square, move.to_square)
     history_delta[move_key] = depth * depth
 
     return move_uci, evaluation, history_delta
+
 
 
 
@@ -512,9 +518,12 @@ def order_moves(board, depth):
 
 # Hàm tránh bị hòa khi đang có lợi thế
 def is_threefold_repetition_if_move(board, move):
-    board_copy = board.copy()
-    board_copy.push(move)
-    return board_copy.is_repetition(3)  # 3 lần lặp => Có thể cầu hòa, 5 lần lặp => Bắt buộc hòa
+    board_copy = board.copy(stack=True)
+    if move in board_copy.legal_moves:
+        board_copy.push(move)
+        return board_copy.is_repetition(3)
+    return False
+
 
 
 # Hàm tính giá trị quân còn lại trên bàn
@@ -538,16 +547,11 @@ def is_wining_change(board, ai_color_=chess.BLACK):
     white_material, black_material = material_score(board)
 
     white_pawn_count = len(board.pieces(chess.PAWN, chess.WHITE))
-    print("Tốt trắng:" + str(white_pawn_count))
     black_pawn_count = len(board.pieces(chess.PAWN, chess.BLACK))
-    print("Tốt đen:" + str(black_pawn_count))
 
     white_score_without_pawns = white_material - 100 * white_pawn_count
-    print("Gtri trắng: " + str(white_score_without_pawns))
     black_score_without_pawns = black_material - 100 * black_pawn_count
-    print("Gtri đen: " + str(black_score_without_pawns))
 
-    print("_________________")
     if ai_color_ == chess.WHITE and black_material == 0 and white_score_without_pawns >= 500:
         return True
     if ai_color_ == chess.BLACK and white_material == 0 and black_score_without_pawns >= 500:
