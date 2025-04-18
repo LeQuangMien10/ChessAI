@@ -92,7 +92,7 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
         score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1)
         board_.pop()
 
-        if score > max_score:
+        if score >= max_score:
             max_score = score
             best_move_found_in_node = move # Cập nhật nước đi tốt nhất tại nút
 
@@ -164,7 +164,7 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
         print(f"Move: {board_.san(move)}, Score: {score}") # In điểm từng nước đi gốc (debug)
 
         # Lưu nước đi tốt nhất tìm thấy cho đến nay
-        if score > best_score:
+        if score >= best_score:
             best_score = score
             best_move = move
 
