@@ -412,13 +412,11 @@ def count_pieces(board):
 
 
 def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
-    tablebase = get_tablebase()
-    if tablebase is None:
+    if TABLEBASE is None:
         return mop_up_evaluation(board, ai_color_)
-    
     try:
-        wdl_raw = tablebase.probe_wdl(board)
-        dtz = tablebase.probe_dtz(board)
+        wdl_raw = TABLEBASE.probe_wdl(board)
+        dtz = TABLEBASE.probe_dtz(board)
 
         wdl = wdl_raw if board.turn == ai_color_ else -wdl_raw
         evaluation = {
@@ -429,11 +427,11 @@ def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
             evaluation += max(0, 100 - abs(dtz)) * 0.5
 
         return evaluation
-
     except chess.syzygy.MissingTableError:
         return mop_up_evaluation(board, ai_color_)
     except Exception:
         return mop_up_evaluation(board, ai_color_)
+
 
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
@@ -560,10 +558,11 @@ def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_coun
 
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
-def move_score(board, move):
+def move_score(board, move, shallow=False):
     score = 0
 
-    if is_important_move(board, move):
+    # Bỏ threat nếu shallow
+    if not shallow and is_important_move(board, move):
         score += 1000
 
     if board.is_capture(move):
@@ -594,7 +593,6 @@ def move_score(board, move):
             score += (3 - rank) * 20
 
     return score
-
 
 def is_important_move(board, move):
     # Nước chiếu
@@ -656,8 +654,7 @@ def order_moves(board, depth):
     scored_moves = []
 
     for move in moves:
-        score = move_score(board, move)
-
+        score = move_score(board, move, shallow=(depth >= 4))
         if depth <= DEFAULT_DEPTH and move in KILLER_MOVES[depth]:
             score += 2000
         move_key = (move.from_square, move.to_square)
