@@ -3,9 +3,8 @@ import pygame.time
 
 from menu import *
 from game import *
-from minimax import get_best_move, save_history_table, decay_history_table
-from minimax import save_transposition_table
-from minimax import print_move_times
+from negamax import get_best_move
+
 
 def handle_game_end():
     global running
@@ -106,7 +105,7 @@ def ai_vs_player():
 
 
 def handle_ai_turn(ai_color):
-    best_move = get_best_move(board, depth=DEFAULT_DEPTH, ai_color_=ai_color)
+    best_move = get_best_move(board, depth=DEFAULT_DEPTH)
     if best_move:
         board.push(best_move)
     else:
@@ -193,11 +192,6 @@ def main():
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
             ai_vs_player()
-
-    save_history_table()
-    decay_history_table()
-    save_transposition_table()
-    print_move_times()
     pygame.quit()
 
 
