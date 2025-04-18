@@ -42,9 +42,9 @@ def draw_board(screen, selected_square=None, legal_moves=None, last_move=None, b
         # Xác định màu của quân cờ vừa đi
         piece = board.piece_at(last_move.to_square)
         if piece and piece.color == chess.WHITE:
-            highlight_color = (173, 216, 230, 128)  # Màu xanh nhạt cho quân trắng
+            highlight_color = LAST_MOVE_HIGHLIGHT
         else:
-            highlight_color = (255, 182, 193, 128)  # Màu đỏ nhạt cho quân đen
+            highlight_color = LAST_MOVE_HIGHLIGHT
 
         # Vẽ ô bắt đầu
         start_col, start_row = chess.square_file(last_move.from_square), chess.square_rank(last_move.from_square)
