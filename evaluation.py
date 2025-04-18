@@ -43,7 +43,7 @@ def piece_square_tables(board_):
     :return: Điểm vị trí các quân cờ theo màu trắng
     """
     evaluation_ = 0
-    positional_bonus = 0
+    # positional_bonus = 0
     for square in chess.SQUARES:
         piece = board_.piece_at(square)
         if piece:
@@ -64,7 +64,7 @@ def piece_square_tables(board_):
 
             evaluation_ += positional_bonus if piece.color == chess.WHITE else -positional_bonus
 
-    return positional_bonus
+    return evaluation_
 
 # Pawn Structure
 # Evaluation of Pieces
