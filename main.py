@@ -4,7 +4,7 @@ import pygame.time
 from menu import *
 from game import *
 from negamax import get_best_move
-
+from fen_string_test import *
 
 def handle_game_end():
     global running

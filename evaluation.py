@@ -218,3 +218,41 @@ def mobility(board_):
 # King Safety
 # Space
 # Tempo
+
+def manhattan_distance(square1, square2):
+    """
+    Tính khoảng cách manhattan giữa hai ô
+    :param square1: ô thứ nhất
+    :param square2: ô thứ hai
+    :return: khoảng cách manhattan
+    """
+    file1, rank1 = chess.square_file(square1), chess.square_rank(square1)
+    file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
+    return abs(file1 - file2) + abs(rank1 - rank2)
+
+
+
+def mop_up_evaluation(board, ai_color_):
+    """
+    Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
+    :param ai_color_: màu cờ AI điều khiển
+    :param board: bàn cờ
+    :return: giá trị mop-up
+    """
+    evaluation = 0
+    # Vị trí vua
+    king_square = board.king(ai_color_)
+    opponent_king_square = board.king(not ai_color_)
+    if king_square and opponent_king_square:
+        # 1. Thưởng vua đối phương xa trung tâm
+        center_manhattan_distance = CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][
+            opponent_king_square % 8]
+        center_bonus = 4.7 * center_manhattan_distance
+        evaluation += center_bonus
+
+        # 2. Thưởng hai vua gần nhau
+        kings_distance = manhattan_distance(king_square, opponent_king_square)
+        king_proximity_bonus = 1.6 * (14 - kings_distance)
+        evaluation += king_proximity_bonus
+
+    return evaluation
