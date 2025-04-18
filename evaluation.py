@@ -2,7 +2,8 @@ import chess
 
 from config import *
 
-#HAM TONG
+
+# HAM TONG
 def evaluate_position(board_, color):
     """
     Đánh giá bàn cờ theo góc nhìn AI
@@ -20,29 +21,23 @@ def evaluate_position(board_, color):
     evaluation += material(board_)
 
     evaluation += piece_square_tables(board_)
-    
+
     evaluation += pawn_structure(board_)
-    
+
     evaluation += mobility(board_)
-    
+
     evaluation += king_safety(board_)
-    
+
     evaluation += tempo(board_, color)
-    
+
     evaluation += trapped_pieces(board_)
-    
+
     evaluation += space(board_)
-
-
-
-
 
     return evaluation * color
 
 
-
-
-#material
+# material
 def material(board_):
     """
     Đánh giá material theo quân trắng.
@@ -57,7 +52,8 @@ def material(board_):
 
     return value
 
-#piece_square_tables
+
+# piece_square_tables
 def piece_square_tables(board_):
     """
     Đánh giá vị trí quân cờ theo quân trắng
@@ -87,6 +83,7 @@ def piece_square_tables(board_):
             evaluation_ += positional_bonus if piece.color == chess.WHITE else -positional_bonus
 
     return evaluation_
+
 
 # Pawn Structure
 def pawn_structure(board_):
@@ -222,6 +219,7 @@ def mobility(board_):
 
     return white_score - black_score
 
+
 # Center Control
 
 
@@ -280,6 +278,7 @@ def king_safety(board_):
     - Các ô xung quanh bị tấn công
     - Đã nhập thành chưa
     """
+
     def evaluate_king(color):
         safety = 0
         king_square = board_.king(color)
@@ -329,6 +328,7 @@ def king_safety(board_):
     black_king_safety = evaluate_king(chess.BLACK)
     return white_king_safety - black_king_safety
 
+
 # Space
 def space(board_):
     """
@@ -348,7 +348,7 @@ def space(board_):
         black_attackers = board_.attackers(chess.BLACK, square)
 
         rank = chess.square_rank(square)
-        
+
         # White kiểm soát ô trên nửa sân của đen
         if white_attackers and rank >= 4:
             white_space += 1
@@ -359,10 +359,9 @@ def space(board_):
         if black_attackers and rank <= 3:
             black_space += 1
             if square in central_squares:
-                black_space += 0.5       
-    
-    return SPACE_WEIGHT * (white_space - black_space)
+                black_space += 0.5
 
+    return SPACE_WEIGHT * (white_space - black_space)
 
 
 # Tempo
@@ -377,7 +376,7 @@ def tempo(board_, color):
         return 0
 
 
-#manhattan_distance
+# manhattan_distance
 def manhattan_distance(square1, square2):
     """
     Tính khoảng cách manhattan giữa hai ô
@@ -390,7 +389,7 @@ def manhattan_distance(square1, square2):
     return abs(file1 - file2) + abs(rank1 - rank2)
 
 
-#mop_up_evaluation
+# mop_up_evaluation
 def mop_up_evaluation(board, ai_color_):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)

@@ -6,6 +6,7 @@ from game import *
 from negamax import get_best_move
 from fen_string_test import *
 
+
 def handle_game_end():
     global running
     update_screen()
@@ -163,6 +164,7 @@ def player_vs_player():
             handle_game_end()
             break
 
+
 # Bọc hàm main
 
 
@@ -175,7 +177,7 @@ def main():
     pygame.display.set_caption("Chess")
 
     game_mode = get_game_mode(screen)
-    board = chess.Board() # Sửa thế ở đây
+    board = chess.Board()  # Sửa thế ở đây
     selected_square = None
     legal_moves = []
     clock = pygame.time.Clock()
