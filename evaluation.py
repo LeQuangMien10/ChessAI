@@ -217,7 +217,11 @@ def mobility(board_):
 
 
 # Connectivity
+
+
 # Trapped Pieces
+
+
 # King Safety
 def king_safety(board_):
     """
@@ -317,3 +321,6 @@ def mop_up_evaluation(board, ai_color_):
         evaluation += king_proximity_bonus
 
     return evaluation
+
+
+# Tempo
