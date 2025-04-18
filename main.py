@@ -193,10 +193,10 @@ def main():
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
             ai_vs_player()
-        save_history_table()
-        decay_history_table()
-        save_transposition_table()
 
+    save_history_table()
+    decay_history_table()
+    save_transposition_table()
     print_move_times()
     pygame.quit()
 

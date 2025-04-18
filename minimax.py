@@ -21,9 +21,9 @@ if os.path.exists(HISTORY_TABLE_FILE):
 # Load transposition table nếu có
 if os.path.exists(TRANSPOSITION_FILE):
     with open(TRANSPOSITION_FILE, 'rb') as f:
-        transposition_table = pickle.load(f)
+        TRANSITION_TABLE = pickle.load(f)
 else:
-    transposition_table = {}
+    TRANSITION_TABLE = {}
 
 
 def save_history_table(min_score=100):
@@ -49,7 +49,7 @@ def save_transposition_table(min_depth=3):
 
         # Gộp bảng cũ và mới, ưu tiên entry có value cao hơn
         merged_table = old_table.copy()
-        for k, v in transposition_table.items():
+        for k, v in TRANSITION_TABLE.items():
             if (k not in merged_table) or (v["value"] > merged_table[k]["value"]):
                 merged_table[k] = v
 
@@ -61,6 +61,7 @@ def save_transposition_table(min_depth=3):
         # Ghi đè sau khi merge
         with open(TRANSPOSITION_FILE, "wb") as file:
             pickle.dump(filtered_table, file)
+        print("Đã lưu Transposition Table.")
     except Exception as e:
         print(f"Lỗi khi lưu Transposition Table: {e}")
 
@@ -331,12 +332,12 @@ def evaluate_board(board_, ai_color_):
 
 def negamax(board, depth, alpha, beta, color):
     key = compute_zorbist_hash(board)
-    if key in transposition_table and transposition_table[key]['depth'] >= depth:
-        return transposition_table[key]['value']
+    if key in TRANSITION_TABLE and TRANSITION_TABLE[key]['depth'] >= depth:
+        return TRANSITION_TABLE[key]['value']
 
     if depth == 0 or board.is_game_over():
         value = quiescence_search(board, alpha, beta, color, ai_color_=board.turn if color == 1 else not board.turn)
-        transposition_table[key] = {'value': value, 'depth': depth}
+        TRANSITION_TABLE[key] = {'value': value, 'depth': depth}
         return value
 
     max_value = -float('inf')
@@ -378,7 +379,7 @@ def negamax(board, depth, alpha, beta, color):
                 HISTORY_TABLE[move_key] = HISTORY_TABLE.get(move_key, 0) + (depth * depth)
             break
 
-    transposition_table[key] = {'value': max_value, 'depth': depth}
+    TRANSITION_TABLE[key] = {'value': max_value, 'depth': depth}
     return max_value
 
 
