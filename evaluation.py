@@ -22,6 +22,8 @@ def evaluate_position(board_, color):
     evaluation += piece_square_tables(board_)
     
     evaluation += pawn_structure(board_)
+    
+    evaluation += mobility(board_)
 
     return evaluation * color
 
@@ -187,8 +189,30 @@ def pawn_structure(board_):
 
 # Evaluation of Pieces
 # Evaluation Patterns
+
 # Mobility
+def mobility(board_):
+    """
+    Mobility nâng cao: tính số nước đi từng quân (không tính tốt), phân theo loại quân,
+    nhân trọng số, rồi tính chênh lệch trắng - đen.
+    """
+    white_score = 0
+    black_score = 0
+
+    for move in board_.legal_moves:
+        piece = board_.piece_at(move.from_square)
+        if piece and piece.piece_type in MOBILITY_WEIGHTS:
+            weight = MOBILITY_WEIGHTS[piece.piece_type]
+            if piece.color == chess.WHITE:
+                white_score += weight
+            else:
+                black_score += weight
+
+    return white_score - black_score
+
 # Center Control
+
+
 # Connectivity
 # Trapped Pieces
 # King Safety

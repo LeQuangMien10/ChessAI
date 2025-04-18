@@ -165,3 +165,12 @@ DOUBLED_PAWN_PENALTY = 0.3
 BACKWARD_PAWN_PENALTY = 0.4
 PASSED_PAWN_BONUS = 0.5
 PAWN_ISLAND_PENALTY = 0.2
+
+MOBILITY_WEIGHTS = {
+    chess.KNIGHT: 0.2,
+    chess.BISHOP: 0.2,
+    chess.ROOK: 0.1,
+    chess.QUEEN: 0.05,
+    chess.KING: 0.05,
+    chess.PAWN: 0.0,  # thường bỏ qua mobility của tốt
+}
