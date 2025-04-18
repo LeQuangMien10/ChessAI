@@ -7,7 +7,12 @@ import config
 from config import *
 from transposition_table import compute_zorbist_hash
 import multiprocessing
+from functools import lru_cache
 
+# Bộ nhớ tạm để cache trong 1 lượt đánh
+MOVE_SCORE_CACHE = {}
+SEE_CACHE = {}
+EVAL_CACHE = {}
 # Mở một lần duy nhất
 SYZYGY_PATH = "3-4-5"
 TABLEBASE = None
@@ -124,27 +129,28 @@ def mop_up_evaluation(board, ai_color_):
 
     return evaluation
 
-def static_exchange_evaluation(board, move):
-    """
-    Tính giá trị ròng của chuỗi ăn quân trên ô đích.
-    :param board: Bàn cờ
-    :param move: Nước đi
-    :return: giá trị chuỗi ăn quân
-    """
+def static_exchange_evaluation(board, move, depth=0, max_depth=3):
+    key = (board.board_fen(), move.uci())
+    if key in SEE_CACHE:
+        return SEE_CACHE[key]
+
+    if depth > max_depth:
+        return 0
+
     target_square = move.to_square
     captured_piece = board.piece_at(target_square)
     if not captured_piece:
         return 0
+
     gain = config.PIECE_VALUES[captured_piece.piece_type]
 
-    # Danh sách quân tấn công và bảo vệ
     attackers = board.attackers(board.turn, target_square)
     defenders = board.attackers(not board.turn, target_square)
 
     if not attackers:
+        SEE_CACHE[key] = gain
         return gain
 
-    # Lấy quân tấn công nhỏ nhất
     min_attacker_value = float('inf')
     min_attacker_square = None
     for square in attackers:
@@ -152,17 +158,20 @@ def static_exchange_evaluation(board, move):
         if piece and config.PIECE_VALUES[piece.piece_type] < min_attacker_value:
             min_attacker_value = config.PIECE_VALUES[piece.piece_type]
             min_attacker_square = square
+
     if min_attacker_square is None:
+        SEE_CACHE[key] = gain
         return gain
 
-    # Mô phỏng nước ăn
     board.push(move)
     next_move = chess.Move(min_attacker_square, target_square)
     if next_move in board.legal_moves:
-        score = max(0, gain - static_exchange_evaluation(board, next_move))
+        score = max(0, gain - static_exchange_evaluation(board, next_move, depth + 1))
     else:
         score = gain
     board.pop()
+
+    SEE_CACHE[key] = score
     return score
 
 def quiescence_search(board, alpha, beta, color, ai_color_):
@@ -268,14 +277,17 @@ def evaluate_board(board_, ai_color_):
     :param board_: bàn cờ
     :return: Giá trị bàn cờ
     """
-
+    key = (board_.board_fen(), ai_color_)
+    if key in EVAL_CACHE:
+        return EVAL_CACHE[key]
     if board_.is_checkmate():
         return -float('inf') if board_.turn == ai_color_ else float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material():
         return 0
 
     evaluation = 0
-    is_endgame_phase = is_endgame(board_)
+    is_endgame_phase = is_endgame_cached(board_.fen())
+
 
     # 1. Trừ điểm nếu bị chiếu
     if board_.is_check():
@@ -347,7 +359,8 @@ def evaluate_board(board_, ai_color_):
     # 6. Mop-up evaluation
     if is_endgame_phase:
         evaluation += mop_up_evaluation(board_, ai_color_)
-
+    
+    EVAL_CACHE[key] = evaluation
     return evaluation
 
 
@@ -442,8 +455,11 @@ import pickle
 
 
 def get_best_move(board, depth, ai_color_, time_limit = 10.0):
+    global MOVE_SCORE_CACHE, SEE_CACHE, EVAL_CACHE
+    MOVE_SCORE_CACHE = {}
+    SEE_CACHE = {}
+    EVAL_CACHE = {}
     start_time = time.time()
-
     piece_count = count_pieces(board)
     best_move = None
     best_value = -float('inf')
@@ -559,17 +575,20 @@ def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_coun
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
 def move_score(board, move, shallow=False):
+    key = (board.board_fen(), move.uci(), shallow)
+    if key in MOVE_SCORE_CACHE:
+        return MOVE_SCORE_CACHE[key]
+
     score = 0
 
-    # Bỏ threat nếu shallow
     if not shallow and is_important_move(board, move):
         score += 1000
 
     if board.is_capture(move):
         see_score = static_exchange_evaluation(board, move)
-        score += see_score * 10  # Tăng trọng số cho SEE
+        score += see_score * 10
         if see_score < 0:
-            score -= 500  # Phạt nước ăn không có lợi
+            score -= 500
 
     if move.promotion:
         score += 900
@@ -577,14 +596,12 @@ def move_score(board, move, shallow=False):
     if board.gives_check(move):
         score += 100
 
-    # Ưu tiên Xe vào cột mở
     if board.piece_at(move.from_square) and board.piece_at(move.from_square).piece_type == chess.ROOK:
         to_file = chess.square_file(move.to_square)
         is_open = all(not board.piece_at(chess.square(to_file, r)) or board.piece_at(chess.square(to_file, r)).piece_type != chess.PAWN for r in range(8))
         if is_open:
             score += 50
 
-    # Ưu tiên Tốt tiến gần hàng phong cấp
     if board.piece_at(move.from_square) and board.piece_at(move.from_square).piece_type == chess.PAWN:
         rank = chess.square_rank(move.to_square)
         if board.turn == chess.WHITE and rank >= 5:
@@ -592,7 +609,9 @@ def move_score(board, move, shallow=False):
         elif board.turn == chess.BLACK and rank <= 2:
             score += (3 - rank) * 20
 
+    MOVE_SCORE_CACHE[key] = score
     return score
+
 
 def is_important_move(board, move):
     # Nước chiếu
@@ -735,6 +754,13 @@ def is_endgame(board):
     total_material = white_material + black_material
     return total_material < 1200 or not has_major_piece
 
+@lru_cache(maxsize=10000)
+def is_endgame_cached(fen):
+    board = chess.Board(fen)
+    return is_endgame(board)
+
+
+
 
 def print_move_times():
     """Print move times statistics when program exits"""
@@ -747,3 +773,4 @@ def print_move_times():
         print("\nIndividual move times:")
         for i, t in enumerate(MOVE_TIMES, 1):
             print(f"Move {i}: {t:.2f}s")
+
