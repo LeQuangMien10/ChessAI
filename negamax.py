@@ -1,12 +1,13 @@
 import time
 
-import chess
+import chess.polyglot
 from typing import Optional  # Thêm Optional để gợi ý kiểu cho best_move
 
 # Import các thành phần cần thiết từ các file khác
 from config import *  # Giả sử config chứa PIECE_VALUES nếu orders.py không định nghĩa lại
 from evaluation import evaluate_position
 from move_ordering import order_moves  # <<<--- IMPORT HÀM SẮP XẾP
+from transition_table import TransitionTable, TTEntry, NodeType
 
 
 # --- Cấu trúc dữ liệu tạm thời (nếu chưa có) ---
@@ -16,7 +17,7 @@ class DummySearchData:
     """Placeholder nếu chưa có cấu trúc dữ liệu search thực sự."""
 
     def __init__(self):
-        self.transposition_table = None  # Thay bằng TT thật sau
+        # self.transposition_table = None  # Thay bằng TT thật sau
         self.killer_moves = {}  # Ví dụ: dict dạng {ply: [move1, move2]}
         self.history_heuristic_table = {}  # Ví dụ: dict dạng {(from, to): score}
 
@@ -45,7 +46,8 @@ search_data = DummySearchData()
 # ----------------------------------------------------
 
 
-def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: int, ply: int):  # <<< Thêm tham số ply
+def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: int, ply: int,
+            tt: TransitionTable, search_data_: DummySearchData):  # <<< Thêm tham số ply
     """
     Negamax với cắt tỉa Alpha-Beta và sắp xếp nước đi.
     :param board_: bàn cờ
@@ -54,28 +56,37 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
     :param beta: beta
     :param color: 1 cho trắng, -1 cho đen
     :param ply: Độ sâu hiện tại từ gốc (dùng cho killers/history)
+    :param tt: bảng TT
+    :param search_data_: search data
     :return: điểm số cao nhất theo góc nhìn AI
     """
-    # --- Kiểm tra bảng băm (Transposition Table Lookup) ---
-    # TODO: Thêm logic kiểm tra TT ở đây nếu có
-    # hash_entry = search_data.transposition_table.probe(...)
-    # if hash_entry and hash_entry.depth >= depth_:
-    #     if hash_entry.flag == EXACT: return hash_entry.score
-    #     if hash_entry.flag == LOWER_BOUND: alpha = max(alpha, hash_entry.score)
-    #     elif hash_entry.flag == UPPER_BOUND: beta = min(beta, hash_entry.score)
-    #     if alpha >= beta: return hash_entry.score # Cutoff từ TT
+
+    original_alpha = alpha
+    is_root_node = (ply == 0)
 
     # --- Điều kiện dừng ---
     if depth_ == 0 or board_.is_game_over():
         return evaluate_position(board_, color=color)  # Sử dụng hàm đánh giá của bạn
 
+    # --- Thăm dò bảng băm ---
+    zobrist_key = chess.polyglot.zobrist_hash(board_)
+    tt_probe_result = tt.probe(zobrist_key, depth_, alpha, beta)
+    tt_move: Optional[chess.Move] = None
+
+    if tt_probe_result is not None:
+        tt_score, tt_move_maybe = tt_probe_result
+        if tt_score is not None:
+            return tt_score
+        if tt_move_maybe:
+            tt_move = tt_move_maybe
+
     # --- Lấy nước đi và SẮP XẾP ---
     legal_moves = list(board_.legal_moves)
 
     # Lấy thông tin để sắp xếp (ví dụ: từ TT, Killers, History)
-    hash_move = None  # TODO: Lấy từ TT probe nếu có (hash_entry.move)
-    killers = search_data.get_killer_moves(ply)
-    history = search_data.history_heuristic_table
+    hash_move = tt_move
+    killers = search_data_.get_killer_moves(ply)
+    history = search_data_.history_heuristic_table
     pv_move = None  # TODO: Lấy từ TT hoặc lần lặp ID trước nếu có
 
     ordered_legal_moves = order_moves(
@@ -90,13 +101,15 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
     # -----------------------------
 
     max_score = float('-inf')
-    best_move_found_in_node = None  # Lưu nước đi tốt nhất tại nút này (cho TT)
+    best_move_found_in_node: Optional[chess.Move] = None  # Lưu nước đi tốt nhất tại nút này (cho TT)
+    move_count = 0
 
     # --- Duyệt qua các nước đi ĐÃ SẮP XẾP ---
     for move in ordered_legal_moves:
+        move_count += 1
         board_.push(move)
         # Gọi đệ quy Negamax, tăng ply lên 1
-        score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1)
+        score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1, tt, search_data_)
         board_.pop()
 
         if score >= max_score:
@@ -110,24 +123,30 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
             # Nếu nước đi này gây cắt tỉa và là nước yên lặng (không bắt quân, không phong cấp)
             # thì có thể lưu nó làm Killer Move và cập nhật History Heuristic.
             if not board_.is_capture(move) and move.promotion is None:
-                search_data.store_killer_move(ply, move)
-                search_data.update_history_score(move, depth_)  # Dùng depth_ còn lại làm trọng số
+                search_data_.store_killer_move(ply, move)
+                search_data_.update_history_score(move, depth_)  # Dùng depth_ còn lại làm trọng số
             break  # Dừng duyệt các nước còn lại
 
     # --- Lưu vào bảng băm (Transposition Table Store) ---
-    # TODO: Thêm logic lưu kết quả vào TT ở đây
-    # flag = EXACT if max_score > initial_alpha else UPPER_BOUND # (Cần initial_alpha)
-    # flag = LOWER_BOUND if max_score >= beta else flag
-    # search_data.transposition_table.store(..., depth_, max_score, flag, best_move_found_in_node)
+    node_type: int
+    if max_score <= original_alpha:
+        node_type = NodeType.UPPER_BOUND
+    elif max_score >= beta:
+        node_type = NodeType.LOWER_BOUND
+    else:
+        node_type = NodeType.EXACT
+    if best_move_found_in_node is not None:
+        tt.store(zobrist_key, depth_, max_score, node_type, best_move_found_in_node)
 
     return max_score
 
 
-def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
+def get_best_move(board_: chess.Board, depth_: int, tt: TransitionTable) -> Optional[chess.Move]:
     """
-    Tìm nước đi tốt nhất theo negamax, sử dụng sắp xếp nước đi ở gốc.
+    Tìm nước đi tốt nhất theo negamax, sử dụng sắp xếp nước đi ở gốc, bảng băm (nên dùng thêm ID).
     :param board_: bàn cờ
     :param depth_: độ sâu tìm kiếm tối đa
+    :param tt: Bảng băm (Transition Table)
     :return: nước đi tốt nhất (chess.Move) hoặc None nếu không có nước đi hợp lệ
     """
     start_time = time.time()
@@ -148,9 +167,11 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
         return None  # Không có nước đi nào
 
     # Ở gốc (ply=0), killers thường không áp dụng, history có thể có từ lần tìm kiếm trước
-    hash_move = None  # TODO: Probe TT ở gốc
+    zobrist_key = chess.polyglot.zobrist_hash(board_)
+    hash_move = tt.get_pv_move(zobrist_key)
     history = search_data.history_heuristic_table  # Có thể dùng history cũ
-    pv_move = None  # TODO: Lấy từ lần lặp ID trước nếu có
+    pv_move = hash_move # Ở gốc, PV move thường là hash move từ lần lặp ID trước
+
 
     ordered_legal_moves = order_moves(
         board=board_,
@@ -164,10 +185,13 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
     # ------------------------------------
 
     # --- Duyệt qua các nước đi gốc ĐÃ SẮP XẾP ---
+    # *** Quan trọng: Iterative Deepening (ID) thường được dùng ở đây ***
+    # Vòng lặp for d in range(1, depth_ + 1): ... negamax(..., d, ...)
+    # Ở đây giả sử chỉ chạy 1 lần với depth_ cố định cho đơn giản
     for move in ordered_legal_moves:
         board_.push(move)
         # Bắt đầu tìm kiếm từ độ sâu depth_-1, và ply=1
-        score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1)
+        score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1, tt, search_data)
         board_.pop()
 
         print(f"Move: {board_.san(move)}, Score: {score: .2f}")  # In điểm từng nước đi gốc (debug)
@@ -177,16 +201,16 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
             best_score = score
             best_move = move
 
-        # Alpha ở gốc cũng cập nhật, nhưng không dùng để cắt tỉa giữa các nước đi gốc
-        # mà để làm cửa sổ cho các nhánh con.
+        # Alpha ở gốc cũng cập nhật
         alpha = max(alpha, score)
 
-        # (Không có cắt tỉa beta ở mức gốc này, vì chúng ta cần duyệt hết
-        #  hoặc ít nhất là tìm được 1 nước đi tốt hơn alpha ban đầu)
+        # TODO: Nếu dùng Iterative Deepening, bạn có thể dừng sớm nếu tìm thấy nước đi duy nhất
+        # hoặc cập nhật PV line ở đây.
 
     if best_move:
         san = board_.san(best_move)
-        print(f"\nBest move found: {san}, Final Score: {best_score: .2f}, Time: {time.time() - start_time: .2f}s")
+        print(f"\nBest move found: {san}, Final Score: {best_score: .2f},"
+              f" Time: {time.time() - start_time: .2f}s, TT Entries: {len(tt)}")
     else:
         print("\nNo legal moves found or error.")  # Xảy ra nếu legal_moves ban đầu rỗng
 
