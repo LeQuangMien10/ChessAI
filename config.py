@@ -132,3 +132,17 @@ KING_CENTER_PENALTY = 10  # mỗi đơn vị lệch khỏi trung tâm
 KING_ATTACKED_SQUARE_PENALTY = 20  # mỗi ô quanh vua bị tấn công
 PAWN_SHIELD_BONUS = 15  # mỗi tốt quanh vua
 CASTLING_RIGHTS_BONUS = 30  # có quyền nhập thành
+
+
+TEMPO_BONUS = 10  # hoặc 10, tùy engine của bạn
+
+
+
+TRAPPED_PIECE_PENALTY = {
+    chess.KNIGHT: 80,
+    chess.BISHOP: 60,
+    chess.ROOK: 100,
+}
+
+
+SPACE_WEIGHT = 1.5

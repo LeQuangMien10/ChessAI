@@ -26,6 +26,15 @@ def evaluate_position(board_, color):
     evaluation += mobility(board_)
     
     evaluation += king_safety(board_)
+    
+    evaluation += tempo(board_, color)
+    
+    evaluation += trapped_pieces(board_)
+    
+    evaluation += space(board_)
+
+
+
 
 
     return evaluation * color
@@ -220,6 +229,45 @@ def mobility(board_):
 
 
 # Trapped Pieces
+def trapped_pieces(board_):
+    """
+    Đánh giá các quân bị mắc kẹt (trapped pieces) theo góc nhìn trắng.
+    Tập trung vào Knight, Bishop, Rook chưa phát triển hoặc bị chặn.
+    """
+    evaluation = 0
+
+    def is_trapped(piece, square, legal_moves):
+        """
+        Kiểm tra xem quân có bị mắc kẹt không: 
+        - Ít nước đi hợp lệ
+        - Đứng ở góc/rìa bàn cờ
+        """
+        if piece.piece_type not in [chess.KNIGHT, chess.BISHOP, chess.ROOK]:
+            return False
+
+        if len(legal_moves) <= 1:
+            file = chess.square_file(square)
+            rank = chess.square_rank(square)
+            if file in [0, 7] or rank in [0, 7]:  # ở biên
+                return True
+
+        return False
+
+    for square in chess.SQUARES:
+        piece = board_.piece_at(square)
+        if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP, chess.ROOK]:
+            legal_moves = [
+                move for move in board_.legal_moves
+                if move.from_square == square
+            ]
+            if is_trapped(piece, square, legal_moves):
+                penalty = TRAPPED_PIECE_PENALTY.get(piece.piece_type, 50)
+                if piece.color == chess.WHITE:
+                    evaluation -= penalty
+                else:
+                    evaluation += penalty
+
+    return evaluation
 
 
 # King Safety
@@ -282,8 +330,54 @@ def king_safety(board_):
     return white_king_safety - black_king_safety
 
 # Space
-# Tempo
+def space(board_):
+    """
+    Đánh giá không gian kiểm soát theo góc nhìn trắng.
+    Tính số ô trống được kiểm soát trên phần sân đối phương.
+    """
+    white_space = 0
+    black_space = 0
+    central_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
 
+    for square in chess.SQUARES:
+        # Bỏ qua ô đang có quân
+        if board_.piece_at(square):
+            continue
+
+        white_attackers = board_.attackers(chess.WHITE, square)
+        black_attackers = board_.attackers(chess.BLACK, square)
+
+        rank = chess.square_rank(square)
+        
+        # White kiểm soát ô trên nửa sân của đen
+        if white_attackers and rank >= 4:
+            white_space += 1
+            if square in central_squares:
+                white_space += 0.5
+
+        # Black kiểm soát ô trên nửa sân của trắng
+        if black_attackers and rank <= 3:
+            black_space += 1
+            if square in central_squares:
+                black_space += 0.5       
+    
+    return SPACE_WEIGHT * (white_space - black_space)
+
+
+
+# Tempo
+def tempo(board_, color):
+    """
+    Đánh giá tempo: nếu là lượt của AI, cộng thêm điểm.
+    Đây là lợi thế tạm thời vì AI được đi trước.
+    """
+    if (board_.turn == chess.WHITE and color == 1) or (board_.turn == chess.BLACK and color == -1):
+        return TEMPO_BONUS
+    else:
+        return 0
+
+
+#manhattan_distance
 def manhattan_distance(square1, square2):
     """
     Tính khoảng cách manhattan giữa hai ô
@@ -296,7 +390,7 @@ def manhattan_distance(square1, square2):
     return abs(file1 - file2) + abs(rank1 - rank2)
 
 
-
+#mop_up_evaluation
 def mop_up_evaluation(board, ai_color_):
     """
     Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
@@ -321,6 +415,3 @@ def mop_up_evaluation(board, ai_color_):
         evaluation += king_proximity_bonus
 
     return evaluation
-
-
-# Tempo
