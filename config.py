@@ -167,10 +167,15 @@ PASSED_PAWN_BONUS = 0.5
 PAWN_ISLAND_PENALTY = 0.2
 
 MOBILITY_WEIGHTS = {
-    chess.KNIGHT: 0.2,
-    chess.BISHOP: 0.2,
-    chess.ROOK: 0.1,
-    chess.QUEEN: 0.05,
-    chess.KING: 0.05,
+    chess.KNIGHT: 3,
+    chess.BISHOP: 3,
+    chess.ROOK: 1.5,
+    chess.QUEEN: 0.75,
+    chess.KING: 0.75,
     chess.PAWN: 0.0,  # thường bỏ qua mobility của tốt
 }
+
+KING_CENTER_PENALTY = 10  # mỗi đơn vị lệch khỏi trung tâm
+KING_ATTACKED_SQUARE_PENALTY = 20  # mỗi ô quanh vua bị tấn công
+PAWN_SHIELD_BONUS = 15  # mỗi tốt quanh vua
+CASTLING_RIGHTS_BONUS = 30  # có quyền nhập thành

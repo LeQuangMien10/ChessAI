@@ -24,6 +24,9 @@ def evaluate_position(board_, color):
     evaluation += pawn_structure(board_)
     
     evaluation += mobility(board_)
+    
+    evaluation += king_safety(board_)
+
 
     return evaluation * color
 
@@ -216,5 +219,63 @@ def mobility(board_):
 # Connectivity
 # Trapped Pieces
 # King Safety
+def king_safety(board_):
+    """
+    Đánh giá độ an toàn của vua theo góc nhìn trắng.
+    Các yếu tố:
+    - Vị trí vua (gần biên hay ở giữa)
+    - Số tốt bảo vệ vua
+    - Các ô xung quanh bị tấn công
+    - Đã nhập thành chưa
+    """
+    def evaluate_king(color):
+        safety = 0
+        king_square = board_.king(color)
+        if king_square is None:
+            return -float('inf')  # mất vua
+
+        # 1. Vị trí vua
+        rank = chess.square_rank(king_square)
+        file = chess.square_file(king_square)
+        center_distance = abs(file - 3.5) + abs(rank - 3.5)
+        safety -= KING_CENTER_PENALTY * center_distance
+
+        # 2. Các ô quanh vua
+        surrounding_squares = [
+            chess.square(f, r)
+            for f in range(file - 1, file + 2)
+            for r in range(rank - 1, rank + 2)
+            if 0 <= f <= 7 and 0 <= r <= 7 and chess.square(f, r) != king_square
+        ]
+
+        # Bị tấn công bởi đối phương?
+        opponent = not color
+        for sq in surrounding_squares:
+            attackers = board_.attackers(opponent, sq)
+            if attackers:
+                safety -= KING_ATTACKED_SQUARE_PENALTY * len(attackers)
+
+        # 3. Có bao nhiêu tốt bảo vệ?
+        pawn_protectors = 0
+        for sq in surrounding_squares:
+            piece = board_.piece_at(sq)
+            if piece and piece.piece_type == chess.PAWN and piece.color == color:
+                pawn_protectors += 1
+        safety += PAWN_SHIELD_BONUS * pawn_protectors
+
+        # 4. Đã nhập thành chưa?
+        if color == chess.WHITE:
+            if board_.has_kingside_castling_rights(color) or board_.has_queenside_castling_rights(color):
+                safety += CASTLING_RIGHTS_BONUS
+        else:
+            if board_.has_kingside_castling_rights(color) or board_.has_queenside_castling_rights(color):
+                safety += CASTLING_RIGHTS_BONUS
+
+        return safety
+
+    white_king_safety = evaluate_king(chess.WHITE)
+    black_king_safety = evaluate_king(chess.BLACK)
+    return white_king_safety - black_king_safety
+
 # Space
 # Tempo
