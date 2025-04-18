@@ -30,6 +30,7 @@ def save_history_table(min_score=100):
     filtered_table = {k: v for k, v in HISTORY_TABLE.items() if v >= min_score}
     with open(HISTORY_TABLE_FILE, "wb") as file:
         pickle.dump(filtered_table, file)
+    print(f"✅ Đã lưu {len(filtered_table)} entries vào History Table thành công")
 
 
 def decay_history_table(factor=0.5):
@@ -47,10 +48,10 @@ def save_transposition_table(min_depth=3):
             with open(TRANSPOSITION_FILE, "rb") as file:
                 old_table = pickle.load(file)
 
-        # Gộp bảng cũ và mới, ưu tiên entry có value cao hơn
+        # Gộp bảng cũ và mới, ưu tiên entry có depth cao hơn
         merged_table = old_table.copy()
         for k, v in TRANSITION_TABLE.items():
-            if (k not in merged_table) or (v["value"] > merged_table[k]["value"]):
+            if (k not in merged_table) or (v["depth"] > merged_table[k]["depth"]):
                 merged_table[k] = v
 
         # Lọc theo độ sâu
@@ -61,9 +62,11 @@ def save_transposition_table(min_depth=3):
         # Ghi đè sau khi merge
         with open(TRANSPOSITION_FILE, "wb") as file:
             pickle.dump(filtered_table, file)
-        print("Đã lưu Transposition Table.")
+        print(f"✅ Đã lưu {len(filtered_table)} entries vào Transition Table thành công")
     except Exception as e:
         print(f"Lỗi khi lưu Transposition Table: {e}")
+        import traceback
+        print(traceback.format_exc())
 
 
 def manhattan_distance(square1, square2):
@@ -330,14 +333,14 @@ def evaluate_board(board_, ai_color_):
     return evaluation
 
 
-def negamax(board, depth, alpha, beta, color):
+def negamax(board, depth, alpha, beta, color, local_transition):
     key = compute_zorbist_hash(board)
-    if key in TRANSITION_TABLE and TRANSITION_TABLE[key]['depth'] >= depth:
-        return TRANSITION_TABLE[key]['value']
+    if key in local_transition and local_transition[key]['depth'] >= depth:
+        return local_transition[key]['value']
 
     if depth == 0 or board.is_game_over():
         value = quiescence_search(board, alpha, beta, color, ai_color_=board.turn if color == 1 else not board.turn)
-        TRANSITION_TABLE[key] = {'value': value, 'depth': depth}
+        local_transition[key] = {'value': value, 'depth': depth}
         return value
 
     max_value = -float('inf')
@@ -356,12 +359,12 @@ def negamax(board, depth, alpha, beta, color):
         if (i > 4 and depth >= 3 and not board.is_check() and not board.is_capture(move)
                 and not move.promotion) and not board.gives_check(move):
             # Giảm 1 độ sâu
-            value = -negamax(board, depth - 1, -beta, -alpha, -color)
+            value = -negamax(board, depth - 1, -beta, -alpha, -color, local_transition)
             if alpha < value < beta:
                 # Tìm kiếm lại nếu cần
-                value = -negamax(board, depth - 1, -beta, -alpha, -color)
+                value = -negamax(board, depth - 1, -beta, -alpha, -color, local_transition)
         else:
-            value = -negamax(board, depth - 1, -beta, -alpha, -color)
+            value = -negamax(board, depth - 1, -beta, -alpha, -color, local_transition)
         board.pop()
 
         if value > max_value:
@@ -379,7 +382,7 @@ def negamax(board, depth, alpha, beta, color):
                 HISTORY_TABLE[move_key] = HISTORY_TABLE.get(move_key, 0) + (depth * depth)
             break
 
-    TRANSITION_TABLE[key] = {'value': max_value, 'depth': depth}
+    local_transition[key] = {'value': max_value, 'depth': depth}
     return max_value
 
 
@@ -446,7 +449,9 @@ def get_best_move(board, depth, ai_color_, time_limit = 10.0):
     best_value = -float('inf')
     color = 1 if board.turn == ai_color_ else -1
 
-    board_bytes = pickle.dumps(board)  # serialize nguyên bàn cờ
+    # Serialize board và TRANSITION_TABLE để gửi cho các tiến trình con
+    board_bytes = pickle.dumps(board)
+    transition_bytes = pickle.dumps(TRANSITION_TABLE)
 
     possible_moves = list(order_moves(board, depth))
     max_workers = max(1, int(os.cpu_count() * 0.75))
@@ -460,26 +465,49 @@ def get_best_move(board, depth, ai_color_, time_limit = 10.0):
                 depth,
                 ai_color_,
                 piece_count,
-                color
+                color,
+                transition_bytes
             )
             for move in possible_moves
         ]
 
         history_delta_total = {}
+        transition_delta = {}  # Lưu các thay đổi từ TRANSITION_TABLE của các tiến trình con
+
         for future in as_completed(futures):
             if time.time() - start_time > time_limit:
                 break
-            move_uci, evaluation, history_delta = future.result()
+            move_uci, evaluation, history_delta, transition_changes = future.result()
 
             if evaluation >= best_value:
                 best_value = evaluation
                 best_move = chess.Move.from_uci(move_uci)
 
+            # Cộng dồn các thay đổi từ history table
             for key, value in history_delta.items():
                 history_delta_total[key] = history_delta_total.get(key, 0) + value
 
+            # Cộng dồn các thay đổi từ transition table
+            for key, value in transition_changes.items():
+                if key not in transition_delta or value["depth"] > transition_delta[key]["depth"]:
+                    transition_delta[key] = value
+
+        # Cập nhật HISTORY_TABLE
+        history_updates = 0
         for key, value in history_delta_total.items():
             HISTORY_TABLE[key] = HISTORY_TABLE.get(key, 0) + value
+            history_updates += 1
+        print(f"✅ Đã cập nhật {history_updates} entries vào History Table")
+        # save_history_table()  # Lưu HISTORY_TABLE sau khi cập nhật
+
+        # Cập nhật TRANSITION_TABLE - chỉ lưu các entry có độ sâu lớn hơn
+        transition_updates = 0
+        for key, value in transition_delta.items():
+            if key not in TRANSITION_TABLE or value["depth"] > TRANSITION_TABLE[key]["depth"]:
+                TRANSITION_TABLE[key] = value
+                transition_updates += 1
+        print(f"✅ Đã cập nhật {transition_updates} entries vào Transition Table")
+        # save_transposition_table()  # Lưu TRANSITION_TABLE sau khi cập nhật
 
     move_time = time.time() - start_time
     MOVE_TIMES.append(move_time)
@@ -490,36 +518,43 @@ def get_best_move(board, depth, ai_color_, time_limit = 10.0):
     return best_move
 
 
-# Cập nhật hàm evaluate_move_in_process để nhận shared_history_table
-def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_count, color):
-    board = pickle.loads(board_bytes)  # khôi phục lại chess.Board
+def evaluate_move_in_process(board_bytes, move_uci, depth, ai_color_, piece_count, color, transition_bytes):
+    board = pickle.loads(board_bytes)
+    local_transition = pickle.loads(transition_bytes)  # Tạo bản sao local của TRANSITION_TABLE
     move = chess.Move.from_uci(move_uci)
     history_delta = {}
+    transition_changes = {}  # Lưu các thay đổi của TRANSITION_TABLE
 
     if is_threefold_repetition_if_move(board, move):
         white_score, black_score = material_score(board)
         if ai_color_ == chess.BLACK:
             if black_score >= white_score + 100:
-                return move_uci, -float('inf'), {}
+                return move_uci, -float('inf'), {}, {}
             elif black_score <= white_score - 200:
-                return move_uci, float('inf'), {}
+                return move_uci, float('inf'), {}, {}
         else:
             if white_score >= black_score + 100:
-                return move_uci, -float('inf'), {}
+                return move_uci, -float('inf'), {}, {}
             elif white_score <= black_score - 200:
-                return move_uci, float('inf'), {}
+                return move_uci, float('inf'), {}, {}
 
     board.push(move)
 
     if piece_count <= 5 and not has_pawn(board, ai_color_):
         evaluation = evaluate_with_tablebase(board, ai_color_)
     else:
-        evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color)
+        evaluation = -negamax(board, depth - 1, -float('inf'), float('inf'), -color, local_transition)
 
     move_key = (move.from_square, move.to_square)
     history_delta[move_key] = depth * depth
 
-    return move_uci, evaluation, history_delta
+    # Lưu các thay đổi của TRANSITION_TABLE - chỉ lưu các entry có độ sâu lớn hơn
+    original_transition = pickle.loads(transition_bytes)
+    for key, value in local_transition.items():
+        if key not in original_transition or value["depth"] > original_transition.get(key, {}).get("depth", -1):
+            transition_changes[key] = value
+
+    return move_uci, evaluation, history_delta, transition_changes
 
 
 # Hàm move_score (tách ra từ order_moves để tái sử dụng)
