@@ -8,6 +8,24 @@ from config import *
 from transposition_table import compute_zorbist_hash
 import multiprocessing
 
+# Mở một lần duy nhất
+SYZYGY_PATH = "3-4-5"
+TABLEBASE = None
+
+def get_tablebase():
+    global TABLEBASE
+    if TABLEBASE is None:
+        try:
+            TABLEBASE = chess.syzygy.open_tablebase(SYZYGY_PATH)
+            print("✅ Syzygy tablebase loaded.")
+        except Exception as e:
+            print(f"❌ Lỗi khi load tablebase: {e}")
+            TABLEBASE = None
+    return TABLEBASE
+
+
+
+
 KILLER_MOVES = [{} for _ in range(DEFAULT_DEPTH + 1)]
 
 # List to store move times
@@ -394,44 +412,28 @@ def count_pieces(board):
 
 
 def evaluate_with_tablebase(board, ai_color_=chess.WHITE):
-    import chess.syzygy
-    with chess.syzygy.open_tablebase("3-4-5") as tablebase:
-        try:
-            piece_count = len(board.piece_map())
-            print(f"Số quân: {piece_count}")
+    tablebase = get_tablebase()
+    if tablebase is None:
+        return mop_up_evaluation(board, ai_color_)
+    
+    try:
+        wdl_raw = tablebase.probe_wdl(board)
+        dtz = tablebase.probe_dtz(board)
 
-            wdl_raw = tablebase.probe_wdl(board)
-            dtz = tablebase.probe_dtz(board)
+        wdl = wdl_raw if board.turn == ai_color_ else -wdl_raw
+        evaluation = {
+            2: 10000, 1: 5000, 0: 0, -1: -5000, -2: -10000
+        }.get(wdl, 0)
 
-            # Chuyển về góc nhìn AI
-            if board.turn == ai_color_:
-                wdl = wdl_raw
-            else:
-                wdl = -wdl_raw
+        if dtz is not None:
+            evaluation += max(0, 100 - abs(dtz)) * 0.5
 
-            print(f"✅ File hợp lệ. WDL (raw): {wdl_raw} | WDL (AI): {wdl} | DTZ: {dtz}")
+        return evaluation
 
-            evaluation = {
-                2: 10000,  # AI thắng
-                1: 5000,
-                0: 0,
-                -1: -5000,
-                -2: -10000  # AI thua
-            }.get(wdl, 0)
-
-            if dtz is not None:
-                evaluation += max(0, 100 - abs(dtz)) * 0.5
-                print("syzygy eval:", evaluation)
-
-            return evaluation
-
-        except chess.syzygy.MissingTableError:
-            print("❌ Thiếu file tablebase.")
-            return mop_up_evaluation(board, ai_color_)
-        except Exception as e:
-            print("❌ Lỗi khác:", e)
-            return mop_up_evaluation(board, ai_color_)
-
+    except chess.syzygy.MissingTableError:
+        return mop_up_evaluation(board, ai_color_)
+    except Exception:
+        return mop_up_evaluation(board, ai_color_)
 
 def has_pawn(board, color):
     return any(piece.piece_type == chess.PAWN and piece.color == color for piece in board.piece_map().values())
