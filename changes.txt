@@ -22,3 +22,6 @@
 11:32 AM 17/4/2025: Sửa hòa sau 3 lần lặp, sửa checkmate lần 2
 8:35 AM 18/4/2025: Thêm lưu transition và transition_table trong get_best_move
 3.05 PM 18/4/2025: fix syzygy open at top
+
+
+8:31 PM 18/04/2025: Logic cơ bản của negamax
