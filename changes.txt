@@ -20,3 +20,4 @@
 12:04 AM 16/4/2025: Sửa checkmate lần 1 
 1:53 PM 16/4/2025: Thêm cơ chế share, gộp dữ liệu an toàn trong multithreading
 11:32 AM 17/4/2025: Sửa hòa sau 3 lần lặp, sửa checkmate lần 2
+8:35 AM 18/4/2025: Thêm lưu transition và transition_table trong get_best_move
