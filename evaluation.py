@@ -2,6 +2,7 @@ import chess
 
 from config import *
 
+#HAM TONG
 def evaluate_position(board_, color):
     """
     Đánh giá bàn cờ theo góc nhìn AI
@@ -19,9 +20,15 @@ def evaluate_position(board_, color):
     evaluation += material(board_)
 
     evaluation += piece_square_tables(board_)
+    
+    evaluation += pawn_structure(board_)
 
     return evaluation * color
 
+
+
+
+#material
 def material(board_):
     """
     Đánh giá material theo quân trắng.
@@ -36,6 +43,7 @@ def material(board_):
 
     return value
 
+#piece_square_tables
 def piece_square_tables(board_):
     """
     Đánh giá vị trí quân cờ theo quân trắng
@@ -67,6 +75,116 @@ def piece_square_tables(board_):
     return evaluation_
 
 # Pawn Structure
+def pawn_structure(board_):
+    """
+    Đánh giá cấu trúc tốt trên bàn cờ theo phía trắng
+    """
+    evaluation_ = 0
+    white_pawns = board_.pieces(chess.PAWN, chess.WHITE)
+    black_pawns = board_.pieces(chess.PAWN, chess.BLACK)
+
+    def get_files(pawn_squares):
+        return sorted(set([chess.square_file(sq) for sq in pawn_squares]))
+
+    def is_isolated(square, color):
+        file = chess.square_file(square)
+        neighbor_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]
+        for neighbor_file in neighbor_files:
+            for rank in range(8):
+                neighbor_square = chess.square(neighbor_file, rank)
+                if board_.piece_at(neighbor_square) == chess.Piece(chess.PAWN, color):
+                    return False
+        return True
+
+    def is_doubled(square, color):
+        file = chess.square_file(square)
+        count = 0
+        for rank in range(8):
+            sq = chess.square(file, rank)
+            if board_.piece_at(sq) == chess.Piece(chess.PAWN, color):
+                count += 1
+        return count > 1
+
+    def is_passed(square, color):
+        file = chess.square_file(square)
+        rank = chess.square_rank(square)
+        direction = 1 if color == chess.WHITE else -1
+        enemy_color = not color
+
+        for f in [file - 1, file, file + 1]:
+            if 0 <= f <= 7:
+                r = rank + direction
+                while 0 <= r <= 7:
+                    sq = chess.square(f, r)
+                    if board_.piece_at(sq) == chess.Piece(chess.PAWN, enemy_color):
+                        return False
+                    r += direction
+        return True
+
+    def is_backward(square, color):
+        file = chess.square_file(square)
+        rank = chess.square_rank(square)
+        direction = 1 if color == chess.WHITE else -1
+        enemy_color = not color
+
+        # Không có đồng minh phía sau để đẩy lên
+        has_support = False
+        for f in [file - 1, file + 1]:
+            if 0 <= f <= 7:
+                for r in range(rank - direction, rank - direction * 3, -direction):
+                    if 0 <= r <= 7:
+                        sq = chess.square(f, r)
+                        if board_.piece_at(sq) == chess.Piece(chess.PAWN, color):
+                            has_support = True
+                            break
+
+        if has_support:
+            return False
+
+        # Có quân địch kiểm soát ô trước mặt
+        front_square = chess.square(file, rank + direction)
+        attackers = board_.attackers(enemy_color, front_square)
+        return bool(attackers)
+
+    def count_islands(pawn_squares):
+        files = sorted([chess.square_file(sq) for sq in pawn_squares])
+        if not files:
+            return 0
+        islands = 1
+        for i in range(1, len(files)):
+            if files[i] != files[i - 1] + 1:
+                islands += 1
+        return islands
+
+    for square in white_pawns:
+        if is_isolated(square, chess.WHITE):
+            evaluation_ -= ISOLATED_PAWN_PENALTY
+        if is_doubled(square, chess.WHITE):
+            evaluation_ -= DOUBLED_PAWN_PENALTY
+        if is_passed(square, chess.WHITE):
+            evaluation_ += PASSED_PAWN_BONUS
+        if is_backward(square, chess.WHITE):
+            evaluation_ -= BACKWARD_PAWN_PENALTY
+
+    for square in black_pawns:
+        if is_isolated(square, chess.BLACK):
+            evaluation_ += ISOLATED_PAWN_PENALTY
+        if is_doubled(square, chess.BLACK):
+            evaluation_ += DOUBLED_PAWN_PENALTY
+        if is_passed(square, chess.BLACK):
+            evaluation_ -= PASSED_PAWN_BONUS
+        if is_backward(square, chess.BLACK):
+            evaluation_ += BACKWARD_PAWN_PENALTY
+
+    # Đánh giá pawn island
+    white_islands = count_islands(white_pawns)
+    black_islands = count_islands(black_pawns)
+    evaluation_ -= PAWN_ISLAND_PENALTY * (white_islands - 1)
+    evaluation_ += PAWN_ISLAND_PENALTY * (black_islands - 1)
+
+    return evaluation_
+
+
 # Evaluation of Pieces
 # Evaluation Patterns
 # Mobility
