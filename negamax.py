@@ -1,3 +1,5 @@
+import time
+
 import chess
 from typing import Optional # Thêm Optional để gợi ý kiểu cho best_move
 
@@ -123,6 +125,8 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
     :param depth_: độ sâu tìm kiếm tối đa
     :return: nước đi tốt nhất (chess.Move) hoặc None nếu không có nước đi hợp lệ
     """
+    start_time = time.time()
+
     global search_data # Sử dụng search_data toàn cục hoặc truyền vào
     search_data = DummySearchData() # Reset hoặc khởi tạo lại cho mỗi lần tìm kiếm mới (tùy chiến lược)
 
@@ -161,7 +165,7 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
         score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1)
         board_.pop()
 
-        print(f"Move: {board_.san(move)}, Score: {score}") # In điểm từng nước đi gốc (debug)
+        print(f"Move: {board_.san(move)}, Score: {score: .2f}") # In điểm từng nước đi gốc (debug)
 
         # Lưu nước đi tốt nhất tìm thấy cho đến nay
         if score >= best_score:
@@ -177,7 +181,7 @@ def get_best_move(board_: chess.Board, depth_: int) -> Optional[chess.Move]:
 
     if best_move:
         san = board_.san(best_move)
-        print(f"\nBest move found: {san}, Final Score: {best_score}")
+        print(f"\nBest move found: {san}, Final Score: {best_score: .2f}, Time: {time.time() - start_time: .2f}s")
     else:
         print("\nNo legal moves found or error.") # Xảy ra nếu legal_moves ban đầu rỗng
 
