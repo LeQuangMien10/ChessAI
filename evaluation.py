@@ -1,22 +1,6 @@
 import chess
-from matplotlib.pyplot import connect
-from time import perf_counter
-import config
+
 from config import *
-
-
-def get_game_phase(board):
-    """
-    Determine the game phase based on the number of pieces on the board.
-    This is a simplified approach. You might want to use more sophisticated methods.
-    """
-    piece_count = len(board.piece_map())
-    if piece_count >= 28:  # Roughly more than half of starting pieces
-        return 'opening'
-    elif piece_count >= 12: # Roughly between 12 and 28 pieces
-        return 'middlegame'
-    else:
-        return 'endgame'
 
 
 # HAM TONG
@@ -34,51 +18,21 @@ def evaluate_position(board_, color):
     if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
         return 0  # Hòa, trả về 0
 
-    # Get the evaluation parameters based on the game phase
-    game_phase = get_game_phase(board_)
-    params = EVAL_PARAMS[game_phase]
+    evaluation += material(board_)
 
-    #Trọng số cho các đánh giá (có thể tùy chỉnh)
-    material_weight = params['material']
-    piece_square_tables_weight = params['piece_square_tables']
-    pawn_structure_weight = params['pawn_structure']
-    mobility_weight = params['mobility']
-    king_safety_weight = params['king_safety']
-    tempo_weight = params['tempo']
-    trapped_pieces_weight = params['trapped_pieces']
-    space_weight = params['space']
-    center_control_weight = params['center_control']
-    connectivity_weight = params['connectivity']
+    evaluation += piece_square_tables(board_)
 
+    evaluation += pawn_structure(board_)
 
-    #Tạm thời ae dùng hàm này nhé để xem từng hàm mất bao nhiêu thời gian sau ok rồi thì zoá
-    timers = {}
+    evaluation += mobility(board_)
 
-    def time_call(label, func):
-        start = perf_counter()
-        result = func()
-        end = perf_counter()
-        timers[label] = end - start
-        return result
+    evaluation += king_safety(board_)
 
-    # Tính tổng từng phần
-    evaluation += time_call("material", lambda: material(board_)) * material_weight
-    evaluation += time_call("piece_square_tables", lambda: piece_square_tables(board_)) * piece_square_tables_weight
-    evaluation += time_call("pawn_structure", lambda: pawn_structure(board_)) * pawn_structure_weight
-    evaluation += time_call("mobility", lambda: mobility(board_)) * mobility_weight
-    evaluation += time_call("king_safety", lambda: king_safety(board_)) * king_safety_weight
-    evaluation += time_call("tempo", lambda: tempo(board_, color)) * tempo_weight
-    evaluation += time_call("trapped_pieces", lambda: trapped_pieces(board_)) * trapped_pieces_weight
-    evaluation += time_call("space", lambda: space(board_)) * space_weight
-    evaluation += time_call("center_control", lambda: center_control(board_)) * center_control_weight
-    evaluation += time_call("connectivity", lambda: connectivity(board_)) * connectivity_weight
-    
-    if game_phase == "endgame":
-        evaluation += mop_up_evaluation(board_, color)
-    # In thông tin benchmark
-    print(f"⚡ Evaluation Benchmark - Phase: {game_phase}")
-    for label, t in timers.items():
-        print(f"  {label:18s}: {t:.6f} s")
+    evaluation += tempo(board_, color)
+
+    evaluation += trapped_pieces(board_)
+
+    evaluation += space(board_)
 
     return evaluation * color
 
@@ -107,7 +61,7 @@ def piece_square_tables(board_):
     :return: Điểm vị trí các quân cờ theo màu trắng
     """
     evaluation_ = 0
-    # positional_bonus = 0
+    positional_bonus = 0
     for square in chess.SQUARES:
         piece = board_.piece_at(square)
         if piece:
@@ -243,8 +197,6 @@ def pawn_structure(board_):
 
 
 # Evaluation of Pieces
-
-
 # Evaluation Patterns
 
 # Mobility
@@ -269,85 +221,9 @@ def mobility(board_):
 
 
 # Center Control
-def center_control(board):
-    """Hàm này tính điểm dựa trên số lượng quân mỗi bên tấn công và chiếm đóng các ô trung tâm."""
-    "Trả về Giá trị dương nghiêng về Trắng, giá trị âm nghiêng về Đen, 0 là cân bằng."
-    center_squares = [chess.D4, chess.E4, chess.D5, chess.E5]  # Các ô trung tâm (sử dụng ký hiệu chess.SQUARES nếu cần)
-    center_control_score = 0
 
-    for square in center_squares:
-        # Kiểm tra quân cờ đang chiếm giữ ô trung tâm
-        piece = board.piece_at(square)
-        if piece:
-            if piece.color == chess.WHITE:
-                center_control_score += PIECE_VALUES[piece.piece_type]
-            else:
-                center_control_score -= PIECE_VALUES[piece.piece_type]
-
-        # Kiểm tra quân cờ tấn công ô trung tâm
-        attackers = board.attackers(chess.WHITE, square)
-        center_control_score += len(attackers)  # Mỗi quân Trắng tấn công ô trung tâm +1 điểm
-
-        attackers = board.attackers(chess.BLACK, square)
-        center_control_score -= len(attackers)  # Mỗi quân Đen tấn công ô trung tâm -1 điểm
-
-    return center_control_score
 
 # Connectivity
-def connectivity(board):
-    """
-    Đánh giá tính kết nối giữa các quân cờ trên bàn cờ.
-
-    Hàm này tập trung vào:
-    1.  **Sự gần gũi:**  Đếm số lượng quân cờ đồng minh ở gần nhau (trong phạm vi 1-2 ô).
-    2.  **Sự hỗ trợ:** Đếm số lượng quân cờ được bảo vệ bởi quân cờ đồng minh.
-
-    Args:
-        board: Đối tượng bàn cờ chess.Board.
-
-    Returns:
-        Một giá trị số nguyên thể hiện điểm kết nối.
-        Giá trị dương nghiêng về Trắng, giá trị âm nghiêng về Đen, 0 là cân bằng.
-    """
-
-    connectivity_score = 0
-
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece:
-            # 1. Đánh giá sự gần gũi (Proximity)
-            for neighbor_square in get_neighbor_squares(square): # Hàm phụ trợ để lấy ô lân cận
-                neighbor_piece = board.piece_at(neighbor_square)
-                if neighbor_piece and neighbor_piece.color == piece.color:
-                    if piece.color == chess.WHITE:
-                        connectivity_score += PIECE_VALUES[piece.piece_type] * 0.1  # Hệ số nhỏ hơn vì chỉ là gần gũi
-                    else:
-                        connectivity_score -= PIECE_VALUES[piece.piece_type] * 0.1
-
-            # 2. Đánh giá sự hỗ trợ (Support)
-            defenders = board.attackers(piece.color, square) # Quân đồng minh bảo vệ ô này
-            if piece.color == chess.WHITE:
-                connectivity_score += len(list(defenders)) * PIECE_VALUES[piece.piece_type] * 0.05
-            else:
-                connectivity_score -= len(list(defenders)) * PIECE_VALUES[piece.piece_type] * 0.05 # Hệ số nhỏ hơn
-
-    return connectivity_score
-
-def get_neighbor_squares(square):
-    """
-    Trả về danh sách các ô lân cận (orthogonally và diagonally) của một ô cho trước,
-    loại bỏ các ô nằm ngoài bàn cờ.
-    """
-    neighbors = []
-    rank, file = chess.square_rank(square), chess.square_file(square)
-    for dr in [-1, 0, 1]:
-        for df in [-1, 0, 1]:
-            if dr == 0 and df == 0:
-                continue  # Bỏ qua chính ô hiện tại
-            new_rank, new_file = rank + dr, file + df
-            if 0 <= new_rank <= 7 and 0 <= new_file <= 7:
-                neighbors.append(chess.square(new_file, new_rank))
-    return neighbors
 
 
 # Trapped Pieces
@@ -360,7 +236,7 @@ def trapped_pieces(board_):
 
     def is_trapped(piece, square, legal_moves):
         """
-        Kiểm tra xem quân có bị mắc kẹt không:
+        Kiểm tra xem quân có bị mắc kẹt không: 
         - Ít nước đi hợp lệ
         - Đứng ở góc/rìa bàn cờ
         """
