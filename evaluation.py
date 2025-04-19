@@ -5,6 +5,20 @@ import config
 from config import *
 
 
+def get_game_phase(board):
+    """
+    Determine the game phase based on the number of pieces on the board.
+    This is a simplified approach. You might want to use more sophisticated methods.
+    """
+    piece_count = len(board.piece_map())
+    if piece_count >= 28:  # Roughly more than half of starting pieces
+        return 'opening'
+    elif piece_count >= 12: # Roughly between 12 and 28 pieces
+        return 'middlegame'
+    else:
+        return 'endgame'
+
+
 # HAM TONG
 def evaluate_position(board_, color):
     """
@@ -20,39 +34,23 @@ def evaluate_position(board_, color):
     if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
         return 0  # Hòa, trả về 0
 
+    # Get the evaluation parameters based on the game phase
+    game_phase = get_game_phase(board_)
+    params = EVAL_PARAMS[game_phase]
+
     #Trọng số cho các đánh giá (có thể tùy chỉnh)
-    material_weight = 9.0
-    piece_square_tables_weight = 1
-    pawn_structure_weight = 0.8
-    mobility_weight = 0.7
-    king_safety_weight = 1.5
-    tempo_weight = 0.3
-    trapped_pieces_weight = 0.6
-    space_weight = 0.5
-    center_control_weight = 0.9
-    connectivity_weight = 0.4
+    material_weight = params['material']
+    piece_square_tables_weight = params['piece_square_tables']
+    pawn_structure_weight = params['pawn_structure']
+    mobility_weight = params['mobility']
+    king_safety_weight = params['king_safety']
+    tempo_weight = params['tempo']
+    trapped_pieces_weight = params['trapped_pieces']
+    space_weight = params['space']
+    center_control_weight = params['center_control']
+    connectivity_weight = params['connectivity']
 
-    #Tính tổng
-    # evaluation += material(board_) * material_weight
 
-    # evaluation += piece_square_tables(board_) * piece_square_tables_weight
-
-    # evaluation += pawn_structure(board_) * pawn_structure_weight
-
-    # evaluation += mobility(board_) * mobility_weight
-
-    # evaluation += king_safety(board_) * king_safety_weight
-
-    # evaluation += tempo(board_, color) * tempo_weight
-
-    # evaluation += trapped_pieces(board_) * trapped_pieces_weight
-
-    # evaluation += space(board_) * space_weight
-
-    # evaluation += center_control(board_) * center_control_weight
-
-    # evaluation += connectivity(board_) * connectivity_weight
-    
     #Tạm thời ae dùng hàm này nhé để xem từng hàm mất bao nhiêu thời gian sau ok rồi thì zoá
     timers = {}
 
@@ -74,9 +72,11 @@ def evaluate_position(board_, color):
     evaluation += time_call("space", lambda: space(board_)) * space_weight
     evaluation += time_call("center_control", lambda: center_control(board_)) * center_control_weight
     evaluation += time_call("connectivity", lambda: connectivity(board_)) * connectivity_weight
-
+    
+    if game_phase == "endgame":
+        evaluation += mop_up_evaluation(board_, color)
     # In thông tin benchmark
-    print("⚡ Evaluation Benchmark:")
+    print(f"⚡ Evaluation Benchmark - Phase: {game_phase}")
     for label, t in timers.items():
         print(f"  {label:18s}: {t:.6f} s")
 
@@ -360,7 +360,7 @@ def trapped_pieces(board_):
 
     def is_trapped(piece, square, legal_moves):
         """
-        Kiểm tra xem quân có bị mắc kẹt không: 
+        Kiểm tra xem quân có bị mắc kẹt không:
         - Ít nước đi hợp lệ
         - Đứng ở góc/rìa bàn cờ
         """
