@@ -1,0 +1,10 @@
+codekiddy.bin
+final-book.bin
+Komodo.bin
+DCbook_large.bin
+Book.bin
+KomodoVariety.bin
+
+Lỗi:
+Elo2400.bin
+gavibook.bin

@@ -105,12 +105,29 @@ def ai_vs_player():
             break
 
 
+def get_book_move(board):
+    try:
+        with chess.polyglot.open_reader("polyglot-collection/sixth_merge.bin") as reader:
+            return reader.weighted_choice(board).move
+    except (IndexError, FileNotFoundError):
+        return None
+
 def handle_ai_turn():
+    # Ưu tiên book trong 10 nước đầu
+    if board.fullmove_number <= 12:
+        book_move = get_book_move(board)
+        if book_move:
+            print(f"🔖 Opening book move: {book_move}")
+            board.push(book_move)
+            return
+
+    # Nếu không có trong book → dùng AI
     best_move = get_best_move(board, depth_=DEFAULT_DEPTH, tt=tt)
     if best_move:
+        print(f"🧠 AI move: {best_move}")
         board.push(best_move)
     else:
-        print("No move")
+        print("⚠️ No valid move found by AI.")
 
 
 def ai_vs_ai():
