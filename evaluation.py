@@ -1,6 +1,6 @@
 import chess
 from matplotlib.pyplot import connect
-
+from time import perf_counter
 import config
 from config import *
 
@@ -33,25 +33,52 @@ def evaluate_position(board_, color):
     connectivity_weight = 0.4
 
     #Tính tổng
-    evaluation += material(board_) * material_weight
+    # evaluation += material(board_) * material_weight
 
-    evaluation += piece_square_tables(board_) * piece_square_tables_weight
+    # evaluation += piece_square_tables(board_) * piece_square_tables_weight
 
-    evaluation += pawn_structure(board_) * pawn_structure_weight
+    # evaluation += pawn_structure(board_) * pawn_structure_weight
 
-    evaluation += mobility(board_) * mobility_weight
+    # evaluation += mobility(board_) * mobility_weight
 
-    evaluation += king_safety(board_) * king_safety_weight
+    # evaluation += king_safety(board_) * king_safety_weight
 
-    evaluation += tempo(board_, color) * tempo_weight
+    # evaluation += tempo(board_, color) * tempo_weight
 
-    evaluation += trapped_pieces(board_) * trapped_pieces_weight
+    # evaluation += trapped_pieces(board_) * trapped_pieces_weight
 
-    evaluation += space(board_) * space_weight
+    # evaluation += space(board_) * space_weight
 
-    evaluation += center_control(board_) * center_control_weight
+    # evaluation += center_control(board_) * center_control_weight
 
-    evaluation += connectivity(board_) * connectivity_weight
+    # evaluation += connectivity(board_) * connectivity_weight
+    
+    #Tạm thời ae dùng hàm này nhé để xem từng hàm mất bao nhiêu thời gian sau ok rồi thì zoá
+    timers = {}
+
+    def time_call(label, func):
+        start = perf_counter()
+        result = func()
+        end = perf_counter()
+        timers[label] = end - start
+        return result
+
+    # Tính tổng từng phần
+    evaluation += time_call("material", lambda: material(board_)) * material_weight
+    evaluation += time_call("piece_square_tables", lambda: piece_square_tables(board_)) * piece_square_tables_weight
+    evaluation += time_call("pawn_structure", lambda: pawn_structure(board_)) * pawn_structure_weight
+    evaluation += time_call("mobility", lambda: mobility(board_)) * mobility_weight
+    evaluation += time_call("king_safety", lambda: king_safety(board_)) * king_safety_weight
+    evaluation += time_call("tempo", lambda: tempo(board_, color)) * tempo_weight
+    evaluation += time_call("trapped_pieces", lambda: trapped_pieces(board_)) * trapped_pieces_weight
+    evaluation += time_call("space", lambda: space(board_)) * space_weight
+    evaluation += time_call("center_control", lambda: center_control(board_)) * center_control_weight
+    evaluation += time_call("connectivity", lambda: connectivity(board_)) * connectivity_weight
+
+    # In thông tin benchmark
+    print("⚡ Evaluation Benchmark:")
+    for label, t in timers.items():
+        print(f"  {label:18s}: {t:.6f} s")
 
     return evaluation * color
 
@@ -216,6 +243,8 @@ def pawn_structure(board_):
 
 
 # Evaluation of Pieces
+
+
 # Evaluation Patterns
 
 # Mobility

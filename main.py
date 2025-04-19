@@ -1,5 +1,4 @@
 import pygame.time
-
 from menu import *
 from game import *
 from negamax import get_best_move
