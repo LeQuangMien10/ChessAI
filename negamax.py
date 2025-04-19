@@ -116,16 +116,18 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
         # LMR
         can_reduce = (
             depth_ >= LMR_MIN_DEPTH and
-            move_count > LMR_MIN_MOVE_INDEX and is_quiet_move and is_root_node and board_.is_check()
-            and not board_.gives_check(move)
-            and alpha > original_alpha
+            move_count > LMR_MIN_MOVE_INDEX and is_quiet_move and not is_root_node
+            and not board_.is_check()
+            # and not board_.gives_check(move)
+            and alpha == original_alpha
         )
 
         board_.push(move)
         # Gọi đệ quy Negamax, tăng ply lên 1
 
         if can_reduce:
-            reduction = int(LMR_BASE_REDUCTION + math.log(min(depth_, 50)) * math.log(min(move_count, 50)) / 3.0)
+            reduction = LMR_BASE_REDUCTION
+            # reduction = int(LMR_BASE_REDUCTION + math.log(min(depth_, 50)) * math.log(min(move_count, 50)) / 3.0)
             reduction = max(0, min(reduction, depth_ - 2))  # Đảm bảo không giảm quá nhiều
 
             reduced_depth = max(0, depth_ - 1 - reduction)
