@@ -150,3 +150,61 @@ TRAPPED_PIECE_PENALTY = {
 
 
 SPACE_WEIGHT = 1.5
+
+# Evaluation parameters for different game phases
+EVAL_PARAMS = {
+    'opening': {
+        'center_control': 10,
+        'king_safety': 5,
+        'mobility': 2,
+        'pawn_structure_isolated': 20,
+        'pawn_structure_doubled': 10,
+        'pawn_structure_passed': 10,
+        'check_penalty': 20,
+        'material': 9.0,
+        'piece_square_tables': 1,
+        'pawn_structure': 0.8,
+        'mobility': 0.7,
+        'king_safety': 1.5,
+        'tempo': 0.3,
+        'trapped_pieces': 0.6,
+        'space': 0.5,
+        'connectivity': 0.4,
+    },
+    'middlegame': {
+        'center_control': 15,
+        'king_safety': 8,
+        'mobility': 3,
+        'pawn_structure_isolated': 25,
+        'pawn_structure_doubled': 15,
+        'pawn_structure_passed': 30,
+        'check_penalty': 15,
+        'material': 9.0,
+        'piece_square_tables': 1,
+        'pawn_structure': 0.8,
+        'mobility': 0.7,
+        'king_safety': 1.5,
+        'tempo': 0.3,
+        'trapped_pieces': 0.6,
+        'space': 0.5,
+        'connectivity': 0.4,
+    },
+    'endgame': {
+        'center_control': 5,
+        'king_safety': 2,
+        'mobility': 1,
+        'pawn_structure_isolated': 30,
+        'pawn_structure_doubled': 20,
+        'pawn_structure_passed': 50,
+        'check_penalty': 10,
+        'material': 6.0, # Material importance decreases in endgame
+        'piece_square_tables': 1.2, # Piece-square tables become more important
+        'pawn_structure': 1.0, # Pawn structure even more critical in endgame
+        'mobility': 0.5,
+        'king_safety': 1.0, # King safety less of a concern when material is reduced
+        'tempo': 0.2,
+        'trapped_pieces': 0.4,
+        'space': 0.3,
+        'connectivity': 0.2,
+    }
+}
