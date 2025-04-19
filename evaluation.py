@@ -51,7 +51,7 @@ def evaluate_position(board_, color):
 
     evaluation += center_control(board_) * center_control_weight
 
-    evaluation += connect(board_) * connectivity_weight
+    evaluation += connectivity(board_) * connectivity_weight
 
     return evaluation * color
 
