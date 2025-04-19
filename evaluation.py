@@ -1,4 +1,6 @@
+from collections import defaultdict
 import chess
+from time import perf_counter
 
 from config import *
 
@@ -18,21 +20,43 @@ def evaluate_position(board_, color):
     if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
         return 0  # Hòa, trả về 0
 
-    evaluation += material(board_)
+    # evaluation += material(board_)
 
-    evaluation += piece_square_tables(board_)
+    # evaluation += piece_square_tables(board_)
 
-    evaluation += pawn_structure(board_)
+    # evaluation += pawn_structure(board_)
 
-    evaluation += mobility(board_)
+    # evaluation += mobility(board_)
 
-    evaluation += king_safety(board_)
+    # evaluation += king_safety(board_)
 
-    evaluation += tempo(board_, color)
+    # evaluation += tempo(board_, color)
 
-    evaluation += trapped_pieces(board_)
+    # evaluation += trapped_pieces(board_)
 
-    evaluation += space(board_)
+    # evaluation += space(board_)
+    timers = {}
+
+    def time_call(label, func):
+        start = perf_counter()
+        result = func()
+        end = perf_counter()
+        timers[label] = end - start
+        return result
+
+    evaluation = 0
+    evaluation += time_call("material", lambda: material(board_))
+    evaluation += time_call("piece_square_tables", lambda: piece_square_tables(board_))
+    evaluation += time_call("pawn_structure", lambda: pawn_structure(board_))
+    evaluation += time_call("mobility", lambda: mobility(board_))
+    evaluation += time_call("king_safety", lambda: king_safety(board_))
+    evaluation += time_call("tempo", lambda: tempo(board_, color))
+    evaluation += time_call("trapped_pieces", lambda: trapped_pieces(board_))
+    evaluation += time_call("space", lambda: space(board_))
+
+    print("⚡ Evaluation Benchmark")
+    for label, t in timers.items():
+        print(f"  {label:18s}: {t:.6f} s") 
 
     return evaluation * color
 
@@ -220,53 +244,45 @@ def mobility(board_):
     return white_score - black_score
 
 
-# Center Control
+# Center Control (Tạm thời chưa cho)
 
 
-# Connectivity
+# Connectivity (Tạm thời chưa cho)
 
 
 # Trapped Pieces
 def trapped_pieces(board_):
     """
     Đánh giá các quân bị mắc kẹt (trapped pieces) theo góc nhìn trắng.
-    Tập trung vào Knight, Bishop, Rook chưa phát triển hoặc bị chặn.
+    Tối ưu: cache legal moves theo from_square để tránh lặp.
     """
     evaluation = 0
 
+    # Cache legal moves theo từng ô xuất phát
+    legal_by_square = defaultdict(list)
+    for move in board_.legal_moves:
+        legal_by_square[move.from_square].append(move)
+
     def is_trapped(piece, square, legal_moves):
-        """
-        Kiểm tra xem quân có bị mắc kẹt không: 
-        - Ít nước đi hợp lệ
-        - Đứng ở góc/rìa bàn cờ
-        """
-        if piece.piece_type not in [chess.KNIGHT, chess.BISHOP, chess.ROOK]:
+        if piece.piece_type not in TRAPPED_PIECE_PENALTY:
             return False
 
         if len(legal_moves) <= 1:
             file = chess.square_file(square)
             rank = chess.square_rank(square)
-            if file in [0, 7] or rank in [0, 7]:  # ở biên
+            if file in [0, 7] or rank in [0, 7]:
                 return True
-
         return False
 
     for square in chess.SQUARES:
         piece = board_.piece_at(square)
-        if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP, chess.ROOK]:
-            legal_moves = [
-                move for move in board_.legal_moves
-                if move.from_square == square
-            ]
+        if piece and piece.piece_type in TRAPPED_PIECE_PENALTY:
+            legal_moves = legal_by_square.get(square, [])
             if is_trapped(piece, square, legal_moves):
-                penalty = TRAPPED_PIECE_PENALTY.get(piece.piece_type, 50)
-                if piece.color == chess.WHITE:
-                    evaluation -= penalty
-                else:
-                    evaluation += penalty
+                penalty = TRAPPED_PIECE_PENALTY[piece.piece_type]
+                evaluation += -penalty if piece.color == chess.WHITE else penalty
 
     return evaluation
-
 
 # King Safety
 def king_safety(board_):
