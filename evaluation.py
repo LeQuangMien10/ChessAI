@@ -1,4 +1,11 @@
+from evaluation_Pawn import evaluate_pawn_features
+from evaluation_Knight import evaluate_knight_features
+from evaluation_Rook import evaluate_rooks
+from evaluation_Queen import evaluate_queens
+from evaluation_King import evaluate_king_features
 from collections import defaultdict
+from evaluation_Bishop import evaluate_bishop_specifics as evaluate_bishop_features
+
 import chess
 from time import perf_counter
 
@@ -13,15 +20,15 @@ def get_phase_ratio(board):
 
 #Tạm thời giữ như vậy
 EVAL_WEIGHTS = {
-    'material': 1.0,
-    'piece_square_tables': 1.0,
-    'pawn_structure': 1.0,
-    'mobility': 1.0,
-    'king_safety': 1.0,
-    'tempo': 1.0,
-    'trapped_pieces': 1.0,
-    'space': 1.0,
-    'mop_up': 1.0
+    'material': 1.00,             # cơ bản, nên là trọng số chuẩn
+    'piece_square_tables': 0.15,  # PST chỉ là điều chỉnh vị trí
+    'pawn_structure': 0.25,       # khá quan trọng (tốt cô lập, backward, island)
+    'mobility': 0.20,             # ảnh hưởng chiến lược trung cuộc
+    'king_safety': 0.40,          # rất quan trọng trung cuộc
+    'tempo': 0.10,                # nhẹ nhưng có giá trị
+    'trapped_pieces': 0.15,       # nhẹ, vì hiếm gặp
+    'space': 0.25,                # quan trọng trung cuộc, nhất là với minor pieces
+    'mop_up': 0.30                # dùng chủ yếu ở endgame
 }
 # HAM TONG
 def evaluate_position(board_, color):
@@ -43,12 +50,13 @@ def evaluate_position(board_, color):
     eval_components = {}
     eval_components['material'] = time_call("material", lambda: material(board_)) * EVAL_WEIGHTS['material']
     eval_components['piece_square_tables'] = time_call("piece_square_tables", lambda: piece_square_tables(board_)) * EVAL_WEIGHTS['piece_square_tables']
-    eval_components['pawn_structure'] = time_call("pawn_structure", lambda: pawn_structure(board_)) * EVAL_WEIGHTS['pawn_structure']
     eval_components['mobility'] = time_call("mobility", lambda: mobility(board_)) * EVAL_WEIGHTS['mobility']
-    eval_components['king_safety'] = time_call("king_safety", lambda: king_safety(board_)) * EVAL_WEIGHTS['king_safety']
     eval_components['tempo'] = time_call("tempo", lambda: tempo(board_, color)) * EVAL_WEIGHTS['tempo']
     eval_components['trapped_pieces'] = time_call("trapped_pieces", lambda: trapped_pieces(board_)) * EVAL_WEIGHTS['trapped_pieces']
     eval_components['space'] = time_call("space", lambda: space(board_)) * EVAL_WEIGHTS['space']
+
+    # ✅ Thay pawn_structure + king_safety bằng evaluate_pieces()
+    eval_components['evaluate_pieces'] = time_call("evaluate_pieces", lambda: evaluate_pieces(board_))
 
     if phase_ratio < 0.3:
         eval_components['mop_up'] = time_call("mop_up", lambda: mop_up_evaluation(board_, chess.WHITE if color == 1 else chess.BLACK)) * EVAL_WEIGHTS['mop_up']
@@ -62,7 +70,6 @@ def evaluate_position(board_, color):
         print(f"  {label:18s}: {t:.6f} s")
 
     return evaluation * color
-
 # material
 def material(board_):
     """
@@ -109,120 +116,24 @@ def piece_square_tables(board_):
             evaluation_ += positional_bonus if piece.color == chess.WHITE else -positional_bonus
 
     return evaluation_
-
-
-# Pawn Structure
-def pawn_structure(board_):
-    """
-    Đánh giá cấu trúc tốt trên bàn cờ theo phía trắng
-    """
-    evaluation_ = 0
-    white_pawns = board_.pieces(chess.PAWN, chess.WHITE)
-    black_pawns = board_.pieces(chess.PAWN, chess.BLACK)
-
-    def get_files(pawn_squares):
-        return sorted(set([chess.square_file(sq) for sq in pawn_squares]))
-
-    def is_isolated(square, color):
-        file = chess.square_file(square)
-        neighbor_files = [f for f in [file - 1, file + 1] if 0 <= f <= 7]
-        for neighbor_file in neighbor_files:
-            for rank in range(8):
-                neighbor_square = chess.square(neighbor_file, rank)
-                if board_.piece_at(neighbor_square) == chess.Piece(chess.PAWN, color):
-                    return False
-        return True
-
-    def is_doubled(square, color):
-        file = chess.square_file(square)
-        count = 0
-        for rank in range(8):
-            sq = chess.square(file, rank)
-            if board_.piece_at(sq) == chess.Piece(chess.PAWN, color):
-                count += 1
-        return count > 1
-
-    def is_passed(square, color):
-        file = chess.square_file(square)
-        rank = chess.square_rank(square)
-        direction = 1 if color == chess.WHITE else -1
-        enemy_color = not color
-
-        for f in [file - 1, file, file + 1]:
-            if 0 <= f <= 7:
-                r = rank + direction
-                while 0 <= r <= 7:
-                    sq = chess.square(f, r)
-                    if board_.piece_at(sq) == chess.Piece(chess.PAWN, enemy_color):
-                        return False
-                    r += direction
-        return True
-
-    def is_backward(square, color):
-        file = chess.square_file(square)
-        rank = chess.square_rank(square)
-        direction = 1 if color == chess.WHITE else -1
-        enemy_color = not color
-
-        # Không có đồng minh phía sau để đẩy lên
-        has_support = False
-        for f in [file - 1, file + 1]:
-            if 0 <= f <= 7:
-                for r in range(rank - direction, rank - direction * 3, -direction):
-                    if 0 <= r <= 7:
-                        sq = chess.square(f, r)
-                        if board_.piece_at(sq) == chess.Piece(chess.PAWN, color):
-                            has_support = True
-                            break
-
-        if has_support:
-            return False
-
-        # Có quân địch kiểm soát ô trước mặt
-        front_square = chess.square(file, rank + direction)
-        attackers = board_.attackers(enemy_color, front_square)
-        return bool(attackers)
-
-    def count_islands(pawn_squares):
-        files = sorted([chess.square_file(sq) for sq in pawn_squares])
-        if not files:
-            return 0
-        islands = 1
-        for i in range(1, len(files)):
-            if files[i] != files[i - 1] + 1:
-                islands += 1
-        return islands
-
-    for square in white_pawns:
-        if is_isolated(square, chess.WHITE):
-            evaluation_ -= ISOLATED_PAWN_PENALTY
-        if is_doubled(square, chess.WHITE):
-            evaluation_ -= DOUBLED_PAWN_PENALTY
-        if is_passed(square, chess.WHITE):
-            evaluation_ += PASSED_PAWN_BONUS
-        if is_backward(square, chess.WHITE):
-            evaluation_ -= BACKWARD_PAWN_PENALTY
-
-    for square in black_pawns:
-        if is_isolated(square, chess.BLACK):
-            evaluation_ += ISOLATED_PAWN_PENALTY
-        if is_doubled(square, chess.BLACK):
-            evaluation_ += DOUBLED_PAWN_PENALTY
-        if is_passed(square, chess.BLACK):
-            evaluation_ -= PASSED_PAWN_BONUS
-        if is_backward(square, chess.BLACK):
-            evaluation_ += BACKWARD_PAWN_PENALTY
-
-    # Đánh giá pawn island
-    white_islands = count_islands(white_pawns)
-    black_islands = count_islands(black_pawns)
-    evaluation_ -= PAWN_ISLAND_PENALTY * (white_islands - 1)
-    evaluation_ += PAWN_ISLAND_PENALTY * (black_islands - 1)
-
-    return evaluation_
-
-
 # Evaluation of Pieces
+def evaluate_pieces(board_: chess.Board) -> float:
+    """
+    Tổng hợp đánh giá các loại quân trên bàn cờ
+    """
+    evaluation = 0
+    phase_ratio = get_phase_ratio(board_)
+
+    evaluation += evaluate_pawn_features(board_)
+    evaluation += evaluate_knight_features(board_)
+    evaluation += evaluate_bishop_features(board_)
+    evaluation += evaluate_rooks(board_, chess.WHITE)
+    evaluation -= evaluate_rooks(board_, chess.BLACK)
+    evaluation += evaluate_queens(board_, chess.WHITE)
+    evaluation -= evaluate_queens(board_, chess.BLACK)
+    evaluation += evaluate_king_features(board_, phase_ratio)
+
+    return evaluation
 # Evaluation Patterns
 
 # Mobility
@@ -285,68 +196,6 @@ def trapped_pieces(board_):
                 evaluation += -penalty if piece.color == chess.WHITE else penalty
 
     return evaluation
-
-# King Safety
-def king_safety(board_):
-    """
-    Đánh giá độ an toàn của vua theo góc nhìn trắng.
-    Các yếu tố:
-    - Vị trí vua (gần biên hay ở giữa)
-    - Số tốt bảo vệ vua
-    - Các ô xung quanh bị tấn công
-    - Đã nhập thành chưa
-    """
-
-    def evaluate_king(color):
-        safety = 0
-        king_square = board_.king(color)
-        if king_square is None:
-            return -float('inf')  # mất vua
-
-        # 1. Vị trí vua
-        rank = chess.square_rank(king_square)
-        file = chess.square_file(king_square)
-        center_distance = abs(file - 3.5) + abs(rank - 3.5)
-        safety -= KING_CENTER_PENALTY * center_distance
-
-        # 2. Các ô quanh vua
-        surrounding_squares = [
-            chess.square(f, r)
-            for f in range(file - 1, file + 2)
-            for r in range(rank - 1, rank + 2)
-            if 0 <= f <= 7 and 0 <= r <= 7 and chess.square(f, r) != king_square
-        ]
-
-        # Bị tấn công bởi đối phương?
-        opponent = not color
-        for sq in surrounding_squares:
-            attackers = board_.attackers(opponent, sq)
-            if attackers:
-                safety -= KING_ATTACKED_SQUARE_PENALTY * len(attackers)
-
-        # 3. Có bao nhiêu tốt bảo vệ?
-        pawn_protectors = 0
-        for sq in surrounding_squares:
-            piece = board_.piece_at(sq)
-            if piece and piece.piece_type == chess.PAWN and piece.color == color:
-                pawn_protectors += 1
-        safety += PAWN_SHIELD_BONUS * pawn_protectors
-
-        # 4. Đã nhập thành chưa?
-        if color == chess.WHITE:
-            if board_.has_kingside_castling_rights(color) or board_.has_queenside_castling_rights(color):
-                safety += CASTLING_RIGHTS_BONUS
-        else:
-            if board_.has_kingside_castling_rights(color) or board_.has_queenside_castling_rights(color):
-                safety += CASTLING_RIGHTS_BONUS
-
-        return safety
-
-    white_king_safety = evaluate_king(chess.WHITE)
-    black_king_safety = evaluate_king(chess.BLACK)
-    return white_king_safety - black_king_safety
-
-
 # Space
 def space(board_):
     """
