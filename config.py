@@ -20,7 +20,7 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
-DEFAULT_DEPTH = 4
+DEFAULT_DEPTH = 5
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 HISTORY_TABLE_FILE = 'history_table.pkl'
 
@@ -112,7 +112,7 @@ CENTER_MANHATTAN_DISTANCE = [
     [6, 5, 4, 3, 3, 4, 5, 6]
 ]
 
-#Pawn Structure Weights
+# Pawn Structure Weights
 ISOLATED_PAWN_PENALTY = 0.5
 DOUBLED_PAWN_PENALTY = 0.3
 BACKWARD_PAWN_PENALTY = 0.4

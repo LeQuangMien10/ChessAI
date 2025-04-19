@@ -25,18 +25,12 @@ EVAL_WEIGHTS = {
     'pawn_structure': 0.25,       # khá quan trọng (tốt cô lập, backward, island)
     'mobility': 0.20,             # ảnh hưởng chiến lược trung cuộc
     'king_safety': 0.40,          # rất quan trọng trung cuộc
-    'tempo': 0.10,                # nhẹ nhưng có giá trị
     'trapped_pieces': 0.15,       # nhẹ, vì hiếm gặp
     'space': 0.25,                # quan trọng trung cuộc, nhất là với minor pieces
     'mop_up': 0.30                # dùng chủ yếu ở endgame
 }
 # HAM TONG
-def evaluate_position(board_, color):
-    if board_.is_checkmate():
-        return -float('inf')
-    if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
-        return 0
-
+def evaluate_position(board_):
     phase_ratio = get_phase_ratio(board_)
     timers = {}
 
@@ -48,28 +42,35 @@ def evaluate_position(board_, color):
         return result
 
     eval_components = {}
-    eval_components['material'] = time_call("material", lambda: material(board_)) * EVAL_WEIGHTS['material']
-    eval_components['piece_square_tables'] = time_call("piece_square_tables", lambda: piece_square_tables(board_)) * EVAL_WEIGHTS['piece_square_tables']
-    eval_components['mobility'] = time_call("mobility", lambda: mobility(board_)) * EVAL_WEIGHTS['mobility']
-    eval_components['tempo'] = time_call("tempo", lambda: tempo(board_, color)) * EVAL_WEIGHTS['tempo']
-    eval_components['trapped_pieces'] = time_call("trapped_pieces", lambda: trapped_pieces(board_)) * EVAL_WEIGHTS['trapped_pieces']
-    eval_components['space'] = time_call("space", lambda: space(board_)) * EVAL_WEIGHTS['space']
 
-    # ✅ Thay pawn_structure + king_safety bằng evaluate_pieces()
-    eval_components['evaluate_pieces'] = time_call("evaluate_pieces", lambda: evaluate_pieces(board_))
+    eval_components['material'] = material(board_) * EVAL_WEIGHTS['material']
+    eval_components['piece_square_tables'] = piece_square_tables(board_) * EVAL_WEIGHTS['piece_square_tables']
+    eval_components['mobility'] = mobility(board_) * EVAL_WEIGHTS['mobility']
+    eval_components['trapped_pieces'] = trapped_pieces(board_) * EVAL_WEIGHTS['trapped_pieces']
+    eval_components['space'] = space(board_) * EVAL_WEIGHTS['space']
+    eval_components['evaluate_pieces'] = evaluate_pieces(board_)
 
-    if phase_ratio < 0.3:
-        eval_components['mop_up'] = time_call("mop_up", lambda: mop_up_evaluation(board_, chess.WHITE if color == 1 else chess.BLACK)) * EVAL_WEIGHTS['mop_up']
-    else:
-        eval_components['mop_up'] = 0
+
+
+    # eval_components['material'] = time_call("material", lambda: material(board_)) * EVAL_WEIGHTS['material']
+    # eval_components['piece_square_tables'] = time_call("piece_square_tables", lambda: piece_square_tables(board_)) * EVAL_WEIGHTS['piece_square_tables']
+    # eval_components['mobility'] = time_call("mobility", lambda: mobility(board_)) * EVAL_WEIGHTS['mobility']
+    # eval_components['trapped_pieces'] = time_call("trapped_pieces", lambda: trapped_pieces(board_)) * EVAL_WEIGHTS['trapped_pieces']
+    # eval_components['space'] = time_call("space", lambda: space(board_)) * EVAL_WEIGHTS['space']
+    # eval_components['evaluate_pieces'] = time_call("evaluate_pieces", lambda: evaluate_pieces(board_))
+
+    # if phase_ratio < 0.3:
+    #     eval_components['mop_up'] = time_call("mop_up", lambda: mop_up_evaluation(board_, chess.WHITE if color == 1 else chess.BLACK)) * EVAL_WEIGHTS['mop_up']
+    # else:
+    #     eval_components['mop_up'] = 0
 
     evaluation = sum(eval_components.values())
 
-    print("\u26a1 Evaluation Benchmark")
-    for label, t in timers.items():
-        print(f"  {label:18s}: {t:.6f} s")
+    # print("\u26a1 Evaluation Benchmark")
+    # for label, t in timers.items():
+    #     print(f"  {label:18s}: {t:.6f} s")
 
-    return evaluation * color
+    return evaluation
 # material
 def material(board_):
     """
@@ -231,17 +232,6 @@ def space(board_):
     return SPACE_WEIGHT * (white_space - black_space)
 
 
-# Tempo
-def tempo(board_, color):
-    """
-    Đánh giá tempo: nếu là lượt của AI, cộng thêm điểm.
-    Đây là lợi thế tạm thời vì AI được đi trước.
-    """
-    if (board_.turn == chess.WHITE and color == 1) or (board_.turn == chess.BLACK and color == -1):
-        return TEMPO_BONUS
-    else:
-        return 0
-
 
 # manhattan_distance
 def manhattan_distance(square1, square2):
@@ -256,28 +246,4 @@ def manhattan_distance(square1, square2):
     return abs(file1 - file2) + abs(rank1 - rank2)
 
 
-# mop_up_evaluation
-def mop_up_evaluation(board, ai_color_):
-    """
-    Tính mop-up evaluation cho giai đoạn end game (https://www.chessprogramming.org/Mop-up_Evaluation)
-    :param ai_color_: màu cờ AI điều khiển
-    :param board: bàn cờ
-    :return: giá trị mop-up
-    """
-    evaluation = 0
-    # Vị trí vua
-    king_square = board.king(ai_color_)
-    opponent_king_square = board.king(not ai_color_)
-    if king_square and opponent_king_square:
-        # 1. Thưởng vua đối phương xa trung tâm
-        center_manhattan_distance = CENTER_MANHATTAN_DISTANCE[7 - opponent_king_square // 8][
-            opponent_king_square % 8]
-        center_bonus = 4.7 * center_manhattan_distance
-        evaluation += center_bonus
-
-        # 2. Thưởng hai vua gần nhau
-        kings_distance = manhattan_distance(king_square, opponent_king_square)
-        king_proximity_bonus = 1.6 * (14 - kings_distance)
-        evaluation += king_proximity_bonus
-
-    return evaluation
+# Mop-up evaluation
