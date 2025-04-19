@@ -1,4 +1,6 @@
+import math
 import time
+from asyncio.trsock import TransportSocket
 
 import chess.polyglot
 from typing import Optional  # Thêm Optional để gợi ý kiểu cho best_move
@@ -7,7 +9,7 @@ from typing import Optional  # Thêm Optional để gợi ý kiểu cho best_mov
 from config import *  # Giả sử config chứa PIECE_VALUES nếu orders.py không định nghĩa lại
 from evaluation import evaluate_position
 from move_ordering import order_moves  # <<<--- IMPORT HÀM SẮP XẾP
-from transition_table import TransitionTable, TTEntry, NodeType
+from transposition_table import TranspositionTable, TTEntry, NodeType
 
 
 # --- Cấu trúc dữ liệu tạm thời (nếu chưa có) ---
@@ -47,9 +49,9 @@ search_data = DummySearchData()
 
 
 def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: int, ply: int,
-            tt: TransitionTable, search_data_: DummySearchData):  # <<< Thêm tham số ply
+            tt: TranspositionTable, search_data_: DummySearchData):  # <<< Thêm tham số ply
     """
-    Negamax với cắt tỉa Alpha-Beta và sắp xếp nước đi.
+    Negamax với cắt tỉa Alpha-Beta và sắp xếp nước đi, TT, LMR.
     :param board_: bàn cờ
     :param depth_: độ sâu còn lại
     :param alpha: alpha
@@ -107,9 +109,38 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
     # --- Duyệt qua các nước đi ĐÃ SẮP XẾP ---
     for move in ordered_legal_moves:
         move_count += 1
+        reduction = 0
+        is_quiet_move = not board_.is_capture(move) and move.promotion is None
+        score = float('-inf')
+
+        # LMR
+        can_reduce = (
+            depth_ >= LMR_MIN_DEPTH and
+            move_count > LMR_MIN_MOVE_INDEX and is_quiet_move and is_root_node and board_.is_check()
+            and not board_.gives_check(move)
+            and alpha > original_alpha
+        )
+
         board_.push(move)
         # Gọi đệ quy Negamax, tăng ply lên 1
-        score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1, tt, search_data_)
+
+        if can_reduce:
+            reduction = int(LMR_BASE_REDUCTION + math.log(min(depth_, 50)) * math.log(min(move_count, 50)) / 3.0)
+            reduction = max(0, min(reduction, depth_ - 2))  # Đảm bảo không giảm quá nhiều
+
+            reduced_depth = max(0, depth_ - 1 - reduction)
+
+            score = -negamax(board_, reduced_depth, -alpha - 1, -alpha, -color, ply + 1, tt, search_data_)
+
+            if score > alpha:
+                score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1, tt, search_data_)
+
+        if not can_reduce or (
+                can_reduce and score > alpha):  # Chỉ thực hiện full search nếu không reduce HOẶC nếu cần re-search
+            if not (can_reduce and score > alpha):  # Tránh gọi lại nếu đã re-search rồi
+                # Tìm kiếm sâu đầy đủ (cho các nước không bị giảm, hoặc các nước đầu)
+                score = -negamax(board_, depth_ - 1, -beta, -alpha, -color, ply + 1, tt, search_data_)
+
         board_.pop()
 
         if score >= max_score:
@@ -122,10 +153,13 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
             # *** CUTOFF ***
             # Nếu nước đi này gây cắt tỉa và là nước yên lặng (không bắt quân, không phong cấp)
             # thì có thể lưu nó làm Killer Move và cập nhật History Heuristic.
-            if not board_.is_capture(move) and move.promotion is None:
+            if is_quiet_move:
                 search_data_.store_killer_move(ply, move)
                 search_data_.update_history_score(move, depth_)  # Dùng depth_ còn lại làm trọng số
             break  # Dừng duyệt các nước còn lại
+
+    if not legal_moves:
+        return 0
 
     # --- Lưu vào bảng băm (Transposition Table Store) ---
     node_type: int
@@ -135,13 +169,15 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, color: 
         node_type = NodeType.LOWER_BOUND
     else:
         node_type = NodeType.EXACT
-    if best_move_found_in_node is not None:
+
+    if depth_ > 0 and (best_move_found_in_node is not None or node_type != NodeType.EXACT):
         tt.store(zobrist_key, depth_, max_score, node_type, best_move_found_in_node)
+
 
     return max_score
 
 
-def get_best_move(board_: chess.Board, depth_: int, tt: TransitionTable) -> Optional[chess.Move]:
+def get_best_move(board_: chess.Board, depth_: int, tt: TranspositionTable) -> Optional[chess.Move]:
     """
     Tìm nước đi tốt nhất theo negamax, sử dụng sắp xếp nước đi ở gốc, bảng băm (nên dùng thêm ID).
     :param board_: bàn cờ

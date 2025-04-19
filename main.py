@@ -4,7 +4,7 @@ from menu import *
 from game import *
 from negamax import get_best_move
 from fen_string_test import *
-from transition_table import TransitionTable
+from transposition_table import TranspositionTable
 
 
 def handle_game_end():
@@ -173,7 +173,7 @@ pygame.display.set_caption("Chess")
 
 game_mode = get_game_mode(screen)
 board = chess.Board()  # Sửa thế ở đây
-tt = TransitionTable(size_mb=128)
+tt = TranspositionTable(size_mb=128)
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()

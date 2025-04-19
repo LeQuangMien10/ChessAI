@@ -16,7 +16,7 @@ class TTEntry(NamedTuple):
     best_move: Optional[chess.Move]
 
 
-class TransitionTable:
+class TranspositionTable:
     def __init__(self, size_mb=64):
         self.table: Dict[int, TTEntry] = {}
 

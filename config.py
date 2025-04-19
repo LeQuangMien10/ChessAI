@@ -24,6 +24,10 @@ DEFAULT_DEPTH = 4
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 HISTORY_TABLE_FILE = 'history_table.pkl'
 
+LMR_MIN_DEPTH = 3
+LMR_MIN_MOVE_INDEX = 3
+LMR_BASE_REDUCTION = 1
+
 # Board
 
 PAWN_POSITION_BONUS = [
