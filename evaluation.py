@@ -4,37 +4,33 @@ from time import perf_counter
 
 from config import *
 
+def get_phase_ratio(board):
+    phase = TOTAL_PHASE
+    for piece_type in PIECE_PHASE:
+        count = len(board.pieces(piece_type, chess.WHITE)) + len(board.pieces(piece_type, chess.BLACK))
+        phase -= PIECE_PHASE[piece_type] * count
+    return max(0, min(1, phase / TOTAL_PHASE))  # clamp trong [0,1]
 
+#Tạm thời giữ như vậy
+EVAL_WEIGHTS = {
+    'material': 1.0,
+    'piece_square_tables': 1.0,
+    'pawn_structure': 1.0,
+    'mobility': 1.0,
+    'king_safety': 1.0,
+    'tempo': 1.0,
+    'trapped_pieces': 1.0,
+    'space': 1.0,
+    'mop_up': 1.0
+}
 # HAM TONG
 def evaluate_position(board_, color):
-    """
-    Đánh giá bàn cờ theo góc nhìn AI
-    :param board_: bàn cờ
-    :param color: 1 cho trắng, -1 cho đen
-    :return:
-    """
-    evaluation = 0
-
     if board_.is_checkmate():
         return -float('inf')
     if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
-        return 0  # Hòa, trả về 0
+        return 0
 
-    # evaluation += material(board_)
-
-    # evaluation += piece_square_tables(board_)
-
-    # evaluation += pawn_structure(board_)
-
-    # evaluation += mobility(board_)
-
-    # evaluation += king_safety(board_)
-
-    # evaluation += tempo(board_, color)
-
-    # evaluation += trapped_pieces(board_)
-
-    # evaluation += space(board_)
+    phase_ratio = get_phase_ratio(board_)
     timers = {}
 
     def time_call(label, func):
@@ -44,22 +40,28 @@ def evaluate_position(board_, color):
         timers[label] = end - start
         return result
 
-    evaluation = 0
-    evaluation += time_call("material", lambda: material(board_))
-    evaluation += time_call("piece_square_tables", lambda: piece_square_tables(board_))
-    evaluation += time_call("pawn_structure", lambda: pawn_structure(board_))
-    evaluation += time_call("mobility", lambda: mobility(board_))
-    evaluation += time_call("king_safety", lambda: king_safety(board_))
-    evaluation += time_call("tempo", lambda: tempo(board_, color))
-    evaluation += time_call("trapped_pieces", lambda: trapped_pieces(board_))
-    evaluation += time_call("space", lambda: space(board_))
+    eval_components = {}
+    eval_components['material'] = time_call("material", lambda: material(board_)) * EVAL_WEIGHTS['material']
+    eval_components['piece_square_tables'] = time_call("piece_square_tables", lambda: piece_square_tables(board_)) * EVAL_WEIGHTS['piece_square_tables']
+    eval_components['pawn_structure'] = time_call("pawn_structure", lambda: pawn_structure(board_)) * EVAL_WEIGHTS['pawn_structure']
+    eval_components['mobility'] = time_call("mobility", lambda: mobility(board_)) * EVAL_WEIGHTS['mobility']
+    eval_components['king_safety'] = time_call("king_safety", lambda: king_safety(board_)) * EVAL_WEIGHTS['king_safety']
+    eval_components['tempo'] = time_call("tempo", lambda: tempo(board_, color)) * EVAL_WEIGHTS['tempo']
+    eval_components['trapped_pieces'] = time_call("trapped_pieces", lambda: trapped_pieces(board_)) * EVAL_WEIGHTS['trapped_pieces']
+    eval_components['space'] = time_call("space", lambda: space(board_)) * EVAL_WEIGHTS['space']
 
-    print("⚡ Evaluation Benchmark")
+    if phase_ratio < 0.3:
+        eval_components['mop_up'] = time_call("mop_up", lambda: mop_up_evaluation(board_, chess.WHITE if color == 1 else chess.BLACK)) * EVAL_WEIGHTS['mop_up']
+    else:
+        eval_components['mop_up'] = 0
+
+    evaluation = sum(eval_components.values())
+
+    print("\u26a1 Evaluation Benchmark")
     for label, t in timers.items():
-        print(f"  {label:18s}: {t:.6f} s") 
+        print(f"  {label:18s}: {t:.6f} s")
 
     return evaluation * color
-
 
 # material
 def material(board_):

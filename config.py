@@ -146,3 +146,15 @@ TRAPPED_PIECE_PENALTY = {
 
 
 SPACE_WEIGHT = 1.5
+
+# Phase value cho từng loại quân
+PIECE_PHASE = {
+    chess.PAWN: 0,
+    chess.KNIGHT: 1,
+    chess.BISHOP: 1,
+    chess.ROOK: 2,
+    chess.QUEEN: 4,
+    chess.KING: 0  # bỏ qua vì luôn có
+}
+
+TOTAL_PHASE = 24  # tổng phase khi full quân
