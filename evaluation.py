@@ -21,16 +21,16 @@ def evaluate_position(board_, color):
         return 0  # Hòa, trả về 0
 
     #Trọng số cho các đánh giá (có thể tùy chỉnh)
-    material_weight = 1
+    material_weight = 9.0
     piece_square_tables_weight = 1
-    pawn_structure_weight = 1
-    mobility_weight = 1
-    king_safety_weight = 1
-    tempo_weight = 1
-    trapped_pieces_weight = 1
-    space_weight = 1
-    center_control_weight = 1
-    connectivity_weight = 1
+    pawn_structure_weight = 0.8
+    mobility_weight = 0.7
+    king_safety_weight = 1.5
+    tempo_weight = 0.3
+    trapped_pieces_weight = 0.6
+    space_weight = 0.5
+    center_control_weight = 0.9
+    connectivity_weight = 0.4
 
     #Tính tổng
     evaluation += material(board_) * material_weight
