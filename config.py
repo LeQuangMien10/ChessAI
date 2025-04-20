@@ -185,15 +185,44 @@ MOBILITY_WEIGHTS = {
     chess.PAWN: 0.0,  # thường bỏ qua mobility của tốt
 }
 
-KING_CENTER_PENALTY = 10  # mỗi đơn vị lệch khỏi trung tâm
-KING_ATTACKED_SQUARE_PENALTY = 20  # mỗi ô quanh vua bị tấn công
-PAWN_SHIELD_BONUS = 15  # mỗi tốt quanh vua
-CASTLING_RIGHTS_BONUS = 30  # có quyền nhập thành
+# --- King Safety ---
+# MG: Phạt nặng Vua ở giữa, thưởng Tốt che chắn
+# EG: Thưởng Vua ở giữa, không cần Tốt che chắn
+KING_ATTACKED_SQUARE_PENALTY_MG = 25 # Phạt cho mỗi đe dọa gần Vua (MG)
+KING_ATTACKED_SQUARE_PENALTY_EG = 10 # Phạt nhẹ hơn ở EG
+PAWN_SHIELD_BONUS_MG = 18           # Bonus cho mỗi Tốt che chắn (MG)
+PAWN_SHIELD_BONUS_EG = 0            # Không cần Tốt che chắn ở EG
+CASTLING_RIGHTS_BONUS = 25          # Giữ nguyên bonus quyền nhập thành (chỉ ảnh hưởng MG phase)
 
 
-TEMPO_BONUS = 10  # hoặc 10, tùy engine của bạn
+# --- Passed Pawns ---
+# Bonus tăng mạnh theo rank ở EG
+# Index 0 là rank 1, index 7 là rank 8 (theo perspective của Trắng)
+# Nên bonus ở rank 1 và 8 thường là 0 vì Tốt không thể là passed pawn ở đó
+PASSED_PAWN_BONUS_MG = [0, 10, 15, 20, 30, 45, 65, 0]
+PASSED_PAWN_BONUS_EG = [0, 25, 40, 60, 90, 130, 180, 0]
+
+# --- Rooks on Files ---
+ROOK_OPEN_FILE_BONUS_MG = 20
+ROOK_OPEN_FILE_BONUS_EG = 30
+ROOK_SEMI_OPEN_FILE_BONUS_MG = 10 # Cột chỉ có Tốt đối phương
+ROOK_SEMI_OPEN_FILE_BONUS_EG = 15
+ROOK_ON_7TH_BONUS_MG = 25         # Xe ở hàng 7 (hoặc 2 cho Đen)
+ROOK_ON_7TH_BONUS_EG = 40
 
 
+EVAL_WEIGHTS = {
+    'material': 1.00,             # cơ bản, nên là trọng số chuẩn
+    'piece_square_tables': 0.20,  # PST chỉ là điều chỉnh vị trí
+    'passed_pawn': 0.40,
+    'rook_files': 0.25,
+    'pawn_structure': 0.25,       # khá quan trọng (tốt cô lập, backward, island)
+    'mobility': 0.20,             # ảnh hưởng chiến lược trung cuộc
+    'king_safety': 0.50,          # rất quan trọng trung cuộc
+    'trapped_pieces': 0.15,       # nhẹ, vì hiếm gặp
+    'space': 0.25,                # quan trọng trung cuộc, nhất là với minor pieces
+    'mop_up': 0.30                # dùng chủ yếu ở endgame
+}
 
 TRAPPED_PIECE_PENALTY = {
     chess.KNIGHT: 80,

@@ -11,6 +11,7 @@ from time import perf_counter
 
 from config import *
 
+
 def get_game_phase(board):
     """
     Tính toán giai đoạn của ván cờ
@@ -29,17 +30,7 @@ def get_game_phase(board):
 
     return min(256, max(0, normalized_phase))
 
-#Tạm thời giữ như vậy
-EVAL_WEIGHTS = {
-    'material': 1.00,             # cơ bản, nên là trọng số chuẩn
-    'piece_square_tables': 0.15,  # PST chỉ là điều chỉnh vị trí
-    'pawn_structure': 0.25,       # khá quan trọng (tốt cô lập, backward, island)
-    'mobility': 0.20,             # ảnh hưởng chiến lược trung cuộc
-    'king_safety': 0.40,          # rất quan trọng trung cuộc
-    'trapped_pieces': 0.15,       # nhẹ, vì hiếm gặp
-    'space': 0.25,                # quan trọng trung cuộc, nhất là với minor pieces
-    'mop_up': 0.30                # dùng chủ yếu ở endgame
-}
+
 # HAM TONG
 def evaluate_position(board_):
     """
@@ -55,42 +46,36 @@ def evaluate_position(board_):
         return 0  # Hòa
 
     # --- Tính Game Phase ---
-    phase = get_game_phase(board_) # Giá trị từ 0 (EG) đến 256 (MG)
+    phase = get_game_phase(board_)  # Giá trị từ 0 (EG) đến 256 (MG)
 
-    # --- Tính Điểm MG/EG cho Từng Thành Phần ---
+    # Lấy điểm MG/EG từ các hàm helper
     mg_material, eg_material = material(board_)
     mg_pst, eg_pst = piece_square_tables(board_)
+    mg_king_safety, eg_king_safety = king_safety_tapered(board_)
+    mg_passed_pawns, eg_passed_pawns = passed_pawns_tapered(board_)
+    mg_rook_files, eg_rook_files = rook_files_tapered(board_)
 
-    # --- (Ví dụ nếu bạn thêm lại các hàm khác) ---
-    # mg_king_safety, eg_king_safety = king_safety(board_) # Cần hàm trả về tuple
-    # mg_passed_pawns, eg_passed_pawns = passed_pawns_eval(board_) # Cần hàm trả về tuple
-    # mg_rook_files, eg_rook_files = rook_files_eval(board_)
-    # ... các thành phần khác ...
-
-
-    # --- Nội Suy Điểm Cuối Cùng ---
+    # Nội suy cho từng thành phần
     final_material = interpolate(mg_material, eg_material, phase)
     final_pst = interpolate(mg_pst, eg_pst, phase)
+    final_king_safety = interpolate(mg_king_safety, eg_king_safety, phase)
+    final_passed_pawns = interpolate(mg_passed_pawns, eg_passed_pawns, phase)
+    final_rook_files = interpolate(mg_rook_files, eg_rook_files, phase)
 
-    # --- (Ví dụ nội suy các thành phần khác) ---
-    # final_king_safety = interpolate(mg_king_safety, eg_king_safety, phase)
-    # final_passed_pawns = interpolate(mg_passed_pawns, eg_passed_pawns, phase)
-    # final_rook_files = interpolate(mg_rook_files, eg_rook_files, phase)
-
-    # --- Tính Tổng Đánh Giá (Áp dụng trọng số nếu muốn) ---
-    # Ví dụ: chỉ có material và PST
-    # total_eval = (final_material * 1.0) + (final_pst * 1.0) # Bỏ trọng số phức tạp ban đầu đi
-    total_eval = (final_material * EVAL_WEIGHTS['material']) + (final_pst * EVAL_WEIGHTS['piece_square_tables']) # Bỏ trọng số phức tạp ban đầu đi
-    # total_eval = (final_material * material_weight) + \
-    #              (final_pst * piece_square_tables_weight) + \
-    #              (final_king_safety * king_safety_weight) + \
-    #              (final_passed_pawns * passed_pawns_weight) + \
-    #              (final_rook_files * rook_files_weight)
-                 # ... cộng các thành phần đã nội suy khác ...
+    # Tính tổng đánh giá cuối cùng (áp dụng trọng số)
+    total_eval = 0
+    total_eval += final_material      * EVAL_WEIGHTS.get('material', 1.0) # Dùng .get để an toàn
+    total_eval += final_pst           * EVAL_WEIGHTS.get('piece_square_tables', 0.0)
+    total_eval += final_king_safety   * EVAL_WEIGHTS.get('king_safety', 0.0)
+    total_eval += final_passed_pawns  * EVAL_WEIGHTS.get('passed_pawns', 0.0)
+    total_eval += final_rook_files    * EVAL_WEIGHTS.get('rook_files', 0.0)
 
     # --- Trả về điểm cuối cùng (theo góc nhìn Trắng) ---
     # Hàm negamax sẽ tự xử lý perspective_multiplier
-    return int(total_eval) # Trả về số nguyên
+    return int(total_eval)  # Trả về số nguyên
+
+# Mop-up evaluation
+
 # material
 def material(board: chess.Board) -> tuple[int, int]:
     """
@@ -144,8 +129,8 @@ def piece_square_tables(board: chess.Board) -> tuple[int, int]:
             if pst_mg is not None and pst_eg is not None:
                 # Tính index dựa trên màu quân
                 index = square if piece.color == chess.WHITE else chess.square_mirror(square)
-                row, col = divmod(index, 8) # Hoặc dùng 7 - index // 8, index % 8 như cũ
-                row_idx = 7 - row # Vì bảng thường định nghĩa từ rank 8 xuống 1
+                row, col = divmod(index, 8)  # Hoặc dùng 7 - index // 8, index % 8 như cũ
+                row_idx = 7 - row  # Vì bảng thường định nghĩa từ rank 8 xuống 1
 
                 bonus_mg = pst_mg[row_idx][col]
                 bonus_eg = pst_eg[row_idx][col]
@@ -173,6 +158,198 @@ def interpolate(mg_score, eg_score, phase):
     # Công thức nội suy tuyến tính
     return ((mg_score * phase) + (eg_score * (256 - phase))) // 256
 
+
+# --- Hàm King Safety Tapered ---
+def _get_surrounding_squares(square):
+    """ Lấy các ô xung quanh (vua) """
+    surrounding = []
+    rank = chess.square_rank(square)
+    file = chess.square_file(square)
+    for r_offset in [-1, 0, 1]:
+        for f_offset in [-1, 0, 1]:
+            if r_offset == 0 and f_offset == 0: continue
+            new_r, new_f = rank + r_offset, file + f_offset
+            if 0 <= new_r <= 7 and 0 <= new_f <= 7:
+                surrounding.append(chess.square(new_f, new_r))
+    return surrounding
+
+def _evaluate_king_safety_for_color(board: chess.Board, color: chess.Color) -> tuple[int, int]:
+    """ Tính điểm an toàn MG và EG cho một màu vua """
+    mg_safety = 0
+    eg_safety = 0
+    king_square = board.king(color)
+    if king_square is None:
+        return (-CHECKMATE_SCORE, -CHECKMATE_SCORE) # Vua đã bị bắt? (rất tệ)
+
+    opponent = not color
+    surrounding_squares = _get_surrounding_squares(king_square)
+
+    # 1. Phạt bị tấn công gần Vua
+    attack_penalty_mg = 0
+    attack_penalty_eg = 0
+    for sq in surrounding_squares:
+        attackers = board.attackers(opponent, sq)
+        if attackers:
+            attack_penalty_mg += len(attackers) * KING_ATTACKED_SQUARE_PENALTY_MG
+            attack_penalty_eg += len(attackers) * KING_ATTACKED_SQUARE_PENALTY_EG
+    mg_safety -= attack_penalty_mg
+    eg_safety -= attack_penalty_eg
+
+    # 2. Thưởng Tốt che chắn (chỉ MG)
+    pawn_shield_bonus = 0
+    king_rank = chess.square_rank(king_square)
+    king_file = chess.square_file(king_square)
+    # Chỉ xét các ô ngay phía trước Vua (thường là quan trọng nhất)
+    shield_ranks = [king_rank + 1] if color == chess.WHITE else [king_rank - 1]
+    if 0 <= shield_ranks[0] <= 7:
+        for f_offset in [-1, 0, 1]:
+            shield_f = king_file + f_offset
+            if 0 <= shield_f <= 7:
+                shield_sq = chess.square(shield_f, shield_ranks[0])
+                piece = board.piece_at(shield_sq)
+                if piece and piece.piece_type == chess.PAWN and piece.color == color:
+                    pawn_shield_bonus += PAWN_SHIELD_BONUS_MG
+    mg_safety += pawn_shield_bonus
+    # eg_safety += PAWN_SHIELD_BONUS_EG # Thường là 0
+
+    # 3. Bonus quyền nhập thành (chỉ MG)
+    if board.has_castling_rights(color):
+         # Kiểm tra xem đã nhập thành chưa, nếu chưa mới cộng bonus quyền
+          mg_safety += CASTLING_RIGHTS_BONUS
+              # Hoặc có thể cộng bonus lớn hơn nếu ĐÃ nhập thành? Tùy logic
+
+    # King PST đã được tính trong piece_square_tables, không cần tính lại ở đây
+
+    return mg_safety, eg_safety
+
+def king_safety_tapered(board: chess.Board) -> tuple[int, int]:
+    """ Tính chênh lệch điểm an toàn vua (Trắng - Đen) cho MG và EG """
+    white_mg, white_eg = _evaluate_king_safety_for_color(board, chess.WHITE)
+    black_mg, black_eg = _evaluate_king_safety_for_color(board, chess.BLACK)
+    return (white_mg - black_mg, white_eg - black_eg)
+
+# --- Hàm Passed Pawns Tapered ---
+def is_passed(board: chess.Board, square: chess.Square, color: chess.Color) -> bool:
+    """ Kiểm tra xem Tốt ở ô square có phải là Tốt thông không """
+    file = chess.square_file(square)
+    rank = chess.square_rank(square)
+    opponent = not color
+    direction = 1 if color == chess.WHITE else -1
+
+    # Kiểm tra các cột trước mặt (cột hiện tại và 2 cột liền kề)
+    for check_file in range(max(0, file - 1), min(8, file + 2)):
+        # Kiểm tra các ô từ hàng tiếp theo đến hàng cuối
+        current_rank = rank + direction
+        while 0 <= current_rank <= 7:
+            check_square = chess.square(check_file, current_rank)
+            piece = board.piece_at(check_square)
+            if piece and piece.piece_type == chess.PAWN and piece.color == opponent:
+                return False # Có Tốt đối phương chặn
+            current_rank += direction
+    return True # Không có Tốt đối phương chặn
+
+def passed_pawns_tapered(board: chess.Board) -> tuple[int, int]:
+    """ Tính điểm bonus Tốt thông cho MG và EG (góc nhìn Trắng) """
+    mg_bonus_total = 0
+    eg_bonus_total = 0
+    white_pawns = board.pieces(chess.PAWN, chess.WHITE)
+    black_pawns = board.pieces(chess.PAWN, chess.BLACK)
+
+    for sq in white_pawns:
+        if is_passed(board, sq, chess.WHITE):
+            rank = chess.square_rank(sq) # rank 0-7
+            mg_bonus = PASSED_PAWN_BONUS_MG[rank]
+            eg_bonus = PASSED_PAWN_BONUS_EG[rank]
+            mg_bonus_total += mg_bonus
+            eg_bonus_total += eg_bonus
+            # Optional: Thêm bonus nếu được Vua bảo vệ/gần Vua ở EG
+
+    for sq in black_pawns:
+        if is_passed(board, sq, chess.BLACK):
+            rank = chess.square_rank(sq)
+            # Lấy bonus từ bảng nhưng đảo ngược index rank cho Đen
+            # Rank 0 của đen là index 7, rank 1 là index 6,... rank 7 là index 0
+            mirrored_rank_index = 7 - rank
+            mg_bonus = PASSED_PAWN_BONUS_MG[mirrored_rank_index]
+            eg_bonus = PASSED_PAWN_BONUS_EG[mirrored_rank_index]
+            mg_bonus_total -= mg_bonus # Trừ điểm của Đen
+            eg_bonus_total -= eg_bonus
+            # Optional: Thêm bonus nếu được Vua bảo vệ/gần Vua ở EG
+
+    return mg_bonus_total, eg_bonus_total
+
+# --- Hàm Rooks on Files Tapered ---
+def _is_file_open(board: chess.Board, file: int) -> bool:
+    """ Kiểm tra cột có hoàn toàn không có Tốt nào không """
+    for rank in range(8):
+        piece = board.piece_at(chess.square(file, rank))
+        if piece and piece.piece_type == chess.PAWN:
+            return False
+    return True
+
+def _is_file_semi_open(board: chess.Board, file: int, color: chess.Color) -> bool:
+    """ Kiểm tra cột có bán mở (không có Tốt phe mình) không """
+    has_friendly_pawn = False
+    has_enemy_pawn = False
+    opponent = not color
+    for rank in range(8):
+        piece = board.piece_at(chess.square(file, rank))
+        if piece and piece.piece_type == chess.PAWN:
+            if piece.color == color:
+                has_friendly_pawn = True
+                break # Chỉ cần 1 Tốt phe mình là đủ kết luận không bán mở
+            else:
+                has_enemy_pawn = True
+    # Bán mở nếu không có Tốt mình VÀ có Tốt địch (hoặc không có Tốt nào -> open)
+    # Định nghĩa phổ biến hơn: bán mở là không có Tốt mình
+    return not has_friendly_pawn
+
+def rook_files_tapered(board: chess.Board) -> tuple[int, int]:
+    """ Tính điểm bonus cho Xe trên cột mở/bán mở (góc nhìn Trắng) """
+    mg_bonus_total = 0
+    eg_bonus_total = 0
+    white_rooks = board.pieces(chess.ROOK, chess.WHITE)
+    black_rooks = board.pieces(chess.ROOK, chess.BLACK)
+
+    for sq in white_rooks:
+        file = chess.square_file(sq)
+        rank = chess.square_rank(sq)
+        is_open = _is_file_open(board, file)
+        is_semi_open = _is_file_semi_open(board, file, chess.WHITE)
+
+        if is_open:
+            mg_bonus_total += ROOK_OPEN_FILE_BONUS_MG
+            eg_bonus_total += ROOK_OPEN_FILE_BONUS_EG
+        elif is_semi_open:
+            mg_bonus_total += ROOK_SEMI_OPEN_FILE_BONUS_MG
+            eg_bonus_total += ROOK_SEMI_OPEN_FILE_BONUS_EG
+
+        # Bonus nếu ở hàng 7 (đối với Trắng)
+        if rank == 6: # Rank index 6 là hàng 7
+            mg_bonus_total += ROOK_ON_7TH_BONUS_MG
+            eg_bonus_total += ROOK_ON_7TH_BONUS_EG
+
+    for sq in black_rooks:
+        file = chess.square_file(sq)
+        rank = chess.square_rank(sq)
+        is_open = _is_file_open(board, file)
+        is_semi_open = _is_file_semi_open(board, file, chess.BLACK)
+
+        if is_open:
+            mg_bonus_total -= ROOK_OPEN_FILE_BONUS_MG
+            eg_bonus_total -= ROOK_OPEN_FILE_BONUS_EG
+        elif is_semi_open:
+            mg_bonus_total -= ROOK_SEMI_OPEN_FILE_BONUS_MG
+            eg_bonus_total -= ROOK_SEMI_OPEN_FILE_BONUS_EG
+
+        # Bonus nếu ở hàng 2 (đối với Đen - rank index 1)
+        if rank == 1: # Rank index 1 là hàng 2
+            mg_bonus_total -= ROOK_ON_7TH_BONUS_MG # Trừ điểm
+            eg_bonus_total -= ROOK_ON_7TH_BONUS_EG
+
+    return mg_bonus_total, eg_bonus_total
+
+
 # Evaluation of Pieces
 def evaluate_pieces(board_: chess.Board) -> float:
     """
@@ -191,6 +368,8 @@ def evaluate_pieces(board_: chess.Board) -> float:
     evaluation += evaluate_king_features(board_, phase_ratio)
 
     return evaluation
+
+
 # Evaluation Patterns
 
 # Mobility
@@ -253,6 +432,8 @@ def trapped_pieces(board_):
                 evaluation += -penalty if piece.color == chess.WHITE else penalty
 
     return evaluation
+
+
 # Space
 def space(board_):
     """
@@ -288,7 +469,6 @@ def space(board_):
     return SPACE_WEIGHT * (white_space - black_space)
 
 
-
 # manhattan_distance
 def manhattan_distance(square1, square2):
     """
@@ -300,6 +480,5 @@ def manhattan_distance(square1, square2):
     file1, rank1 = chess.square_file(square1), chess.square_rank(square1)
     file2, rank2 = chess.square_file(square2), chess.square_rank(square2)
     return abs(file1 - file2) + abs(rank1 - rank2)
-
 
 # Mop-up evaluation
