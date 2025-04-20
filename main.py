@@ -124,7 +124,7 @@ def handle_ai_turn():
     # Nếu không có trong book → dùng AI
     best_move = get_best_move(board, target_depth=MAX_DEPTH, tt=tt)
     if best_move:
-        print(f"🧠 AI move: {best_move}")
+        print(f"🧠 AI move: {board.san(best_move)}")
         board.push(best_move)
     else:
         print("⚠️ No valid move found by AI.")

@@ -11,12 +11,23 @@ from time import perf_counter
 
 from config import *
 
-def get_phase_ratio(board):
-    phase = TOTAL_PHASE
+def get_game_phase(board):
+    """
+    Tính toán giai đoạn của ván cờ
+    :param board: bàn cờ
+    :return: Giá trị từ 0 (endgame) đến 256 (opening/midgame)
+    """
+
+    current_phase = 0
     for piece_type in PIECE_PHASE:
-        count = len(board.pieces(piece_type, chess.WHITE)) + len(board.pieces(piece_type, chess.BLACK))
-        phase -= PIECE_PHASE[piece_type] * count
-    return max(0, min(1, phase / TOTAL_PHASE))  # clamp trong [0,1]
+        current_phase += len(board.pieces(piece_type, chess.WHITE)) * PIECE_PHASE[piece_type]
+        current_phase += len(board.pieces(piece_type, chess.BLACK)) * PIECE_PHASE[piece_type]
+
+    current_phase = min(TOTAL_PHASE, max(0, current_phase))
+
+    normalized_phase = (current_phase * 256 + (TOTAL_PHASE // 2)) // TOTAL_PHASE
+
+    return min(256, max(0, normalized_phase))
 
 #Tạm thời giữ như vậy
 EVAL_WEIGHTS = {
@@ -31,99 +42,144 @@ EVAL_WEIGHTS = {
 }
 # HAM TONG
 def evaluate_position(board_):
-    phase_ratio = get_phase_ratio(board_)
-    timers = {}
-
-    def time_call(label, func):
-        start = perf_counter()
-        result = func()
-        end = perf_counter()
-        timers[label] = end - start
-        return result
-
-    eval_components = {}
-
-    eval_components['material'] = material(board_) * EVAL_WEIGHTS['material']
-    eval_components['piece_square_tables'] = piece_square_tables(board_) * EVAL_WEIGHTS['piece_square_tables']
-    # eval_components['mobility'] = mobility(board_) * EVAL_WEIGHTS['mobility']
-    # eval_components['trapped_pieces'] = trapped_pieces(board_) * EVAL_WEIGHTS['trapped_pieces']
-    # eval_components['space'] = space(board_) * EVAL_WEIGHTS['space']
-    # eval_components['evaluate_pieces'] = evaluate_pieces(board_)
-
-
-
-    # eval_components['material'] = time_call("material", lambda: material(board_)) * EVAL_WEIGHTS['material']
-    # eval_components['piece_square_tables'] = time_call("piece_square_tables", lambda: piece_square_tables(board_)) * EVAL_WEIGHTS['piece_square_tables']
-    # eval_components['mobility'] = time_call("mobility", lambda: mobility(board_)) * EVAL_WEIGHTS['mobility']
-    # eval_components['trapped_pieces'] = time_call("trapped_pieces", lambda: trapped_pieces(board_)) * EVAL_WEIGHTS['trapped_pieces']
-    # eval_components['space'] = time_call("space", lambda: space(board_)) * EVAL_WEIGHTS['space']
-    # eval_components['evaluate_pieces'] = time_call("evaluate_pieces", lambda: evaluate_pieces(board_))
-
-    # if phase_ratio < 0.3:
-    #     eval_components['mop_up'] = time_call("mop_up", lambda: mop_up_evaluation(board_, chess.WHITE if color == 1 else chess.BLACK)) * EVAL_WEIGHTS['mop_up']
-    # else:
-    #     eval_components['mop_up'] = 0
-
-    evaluation = sum(eval_components.values())
-
-    # print("\u26a1 Evaluation Benchmark")
-    # for label, t in timers.items():
-    #     print(f"  {label:18s}: {t:.6f} s")
-
-    return evaluation
-# material
-def material(board_):
     """
-    Đánh giá material theo quân trắng.
+    Tổng hợp điểm tính toán từ các hàm đánh giá con theo góc nhìn quân trắng
     :param board_: bàn cờ
-    :return: điểm nguyên liệu theo quân trắng
+    :return: Điểm của bàn cờ theo góc nhìn quân trắng
     """
-    value = 0
-    for square in chess.SQUARES:
-        piece = board_.piece_at(square)
-        if piece:
-            value += PIECE_VALUES[piece.piece_type] if piece.color == chess.WHITE else -PIECE_VALUES[piece.piece_type]
+    # --- Kiểm tra Mate/Stalemate ---
+    if board_.is_checkmate():
+        # Ai bị chiếu hết? Nếu là lượt Đen -> Trắng thắng
+        return CHECKMATE_SCORE if board_.turn == chess.BLACK else -CHECKMATE_SCORE
+    if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
+        return 0  # Hòa
 
-    return value
+    # --- Tính Game Phase ---
+    phase = get_game_phase(board_) # Giá trị từ 0 (EG) đến 256 (MG)
+
+    # --- Tính Điểm MG/EG cho Từng Thành Phần ---
+    mg_material, eg_material = material(board_)
+    mg_pst, eg_pst = piece_square_tables(board_)
+
+    # --- (Ví dụ nếu bạn thêm lại các hàm khác) ---
+    # mg_king_safety, eg_king_safety = king_safety(board_) # Cần hàm trả về tuple
+    # mg_passed_pawns, eg_passed_pawns = passed_pawns_eval(board_) # Cần hàm trả về tuple
+    # mg_rook_files, eg_rook_files = rook_files_eval(board_)
+    # ... các thành phần khác ...
+
+
+    # --- Nội Suy Điểm Cuối Cùng ---
+    final_material = interpolate(mg_material, eg_material, phase)
+    final_pst = interpolate(mg_pst, eg_pst, phase)
+
+    # --- (Ví dụ nội suy các thành phần khác) ---
+    # final_king_safety = interpolate(mg_king_safety, eg_king_safety, phase)
+    # final_passed_pawns = interpolate(mg_passed_pawns, eg_passed_pawns, phase)
+    # final_rook_files = interpolate(mg_rook_files, eg_rook_files, phase)
+
+    # --- Tính Tổng Đánh Giá (Áp dụng trọng số nếu muốn) ---
+    # Ví dụ: chỉ có material và PST
+    # total_eval = (final_material * 1.0) + (final_pst * 1.0) # Bỏ trọng số phức tạp ban đầu đi
+    total_eval = (final_material * EVAL_WEIGHTS['material']) + (final_pst * EVAL_WEIGHTS['piece_square_tables']) # Bỏ trọng số phức tạp ban đầu đi
+    # total_eval = (final_material * material_weight) + \
+    #              (final_pst * piece_square_tables_weight) + \
+    #              (final_king_safety * king_safety_weight) + \
+    #              (final_passed_pawns * passed_pawns_weight) + \
+    #              (final_rook_files * rook_files_weight)
+                 # ... cộng các thành phần đã nội suy khác ...
+
+    # --- Trả về điểm cuối cùng (theo góc nhìn Trắng) ---
+    # Hàm negamax sẽ tự xử lý perspective_multiplier
+    return int(total_eval) # Trả về số nguyên
+# material
+def material(board: chess.Board) -> tuple[int, int]:
+    """
+    Hàm tính toán điểm midgame và endgame theo góc nhìn quân trắng
+    :param board: bàn cờ
+    :return: Tuples (mg_value, eg_value)
+    """
+    mg_value = 0
+    eg_value = 0
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece:
+            mg_val = PIECE_VALUES_MG[piece.piece_type]
+            eg_val = PIECE_VALUES_EG[piece.piece_type]
+            if piece.color == chess.WHITE:
+                mg_value += mg_val
+                eg_value += eg_val
+            else:
+                mg_value -= mg_val
+                eg_value -= eg_val
+    return mg_value, eg_value
 
 
 # piece_square_tables
-def piece_square_tables(board_):
-    """
-    Đánh giá vị trí quân cờ theo quân trắng
-    :param board_: bàn cờ
-    :return: Điểm vị trí các quân cờ theo màu trắng
-    """
-    evaluation_ = 0
-    positional_bonus = 0
+def piece_square_tables(board: chess.Board) -> tuple[int, int]:
+    """ Trả về (pst_mg, pst_eg) theo góc nhìn Trắng. """
+    mg_eval = 0
+    eg_eval = 0
+
     for square in chess.SQUARES:
-        piece = board_.piece_at(square)
+        piece = board.piece_at(square)
         if piece:
-            index = square if piece.color == chess.WHITE else chess.square_mirror(square)
+            # Lấy đúng bảng PST cho MG và EG
+            pst_mg = None
+            pst_eg = None
+            piece_type = piece.piece_type
 
-            if piece.piece_type == chess.PAWN:
-                positional_bonus = PAWN_POSITION_BONUS[7 - index // 8][index % 8]
-            elif piece.piece_type == chess.KNIGHT:
-                positional_bonus = KNIGHT_POSITION_BONUS[7 - index // 8][index % 8]
-            elif piece.piece_type == chess.BISHOP:
-                positional_bonus = BISHOP_POSITION_BONUS[7 - index // 8][index % 8]
-            elif piece.piece_type == chess.ROOK:
-                positional_bonus = ROOK_POSITION_BONUS[7 - index // 8][index % 8]
-            elif piece.piece_type == chess.QUEEN:
-                positional_bonus = QUEEN_POSITION_BONUS[7 - index // 8][index % 8]
-            elif piece.piece_type == chess.KING:
-                positional_bonus = KING_POSITION_BONUS[7 - index // 8][index % 8]
+            if piece_type == chess.PAWN:
+                pst_mg, pst_eg = PAWN_POSITION_BONUS_MG, PAWN_POSITION_BONUS_EG
+            elif piece_type == chess.KNIGHT:
+                pst_mg, pst_eg = KNIGHT_POSITION_BONUS_MG, KNIGHT_POSITION_BONUS_EG
+            elif piece_type == chess.BISHOP:
+                pst_mg, pst_eg = BISHOP_POSITION_BONUS_MG, BISHOP_POSITION_BONUS_EG
+            elif piece_type == chess.ROOK:
+                pst_mg, pst_eg = ROOK_POSITION_BONUS_MG, ROOK_POSITION_BONUS_EG
+            elif piece_type == chess.QUEEN:
+                pst_mg, pst_eg = QUEEN_POSITION_BONUS_MG, QUEEN_POSITION_BONUS_EG
+            elif piece_type == chess.KING:
+                pst_mg, pst_eg = KING_POSITION_BONUS_MG, KING_POSITION_BONUS_EG
 
-            evaluation_ += positional_bonus if piece.color == chess.WHITE else -positional_bonus
+            if pst_mg is not None and pst_eg is not None:
+                # Tính index dựa trên màu quân
+                index = square if piece.color == chess.WHITE else chess.square_mirror(square)
+                row, col = divmod(index, 8) # Hoặc dùng 7 - index // 8, index % 8 như cũ
+                row_idx = 7 - row # Vì bảng thường định nghĩa từ rank 8 xuống 1
 
-    return evaluation_
+                bonus_mg = pst_mg[row_idx][col]
+                bonus_eg = pst_eg[row_idx][col]
+
+                if piece.color == chess.WHITE:
+                    mg_eval += bonus_mg
+                    eg_eval += bonus_eg
+                else:
+                    mg_eval -= bonus_mg
+                    eg_eval -= bonus_eg
+
+    return mg_eval, eg_eval
+
+
+def interpolate(mg_score, eg_score, phase):
+    """
+    Nội suy điểm giữa MG và EG dựa trên phase.
+    :param mg_score: Điểm MG
+    :param eg_score: Điểm EG
+    :param phase: giai đoạn của game [0, 256]
+    :return: điểm nội suy
+    """
+    # Đảm bảo phase nằm trong khoảng [0, 256]
+    phase = min(256, max(0, phase))
+    # Công thức nội suy tuyến tính
+    return ((mg_score * phase) + (eg_score * (256 - phase))) // 256
+
 # Evaluation of Pieces
 def evaluate_pieces(board_: chess.Board) -> float:
     """
     Tổng hợp đánh giá các loại quân trên bàn cờ
     """
     evaluation = 0
-    phase_ratio = get_phase_ratio(board_)
+    phase_ratio = get_game_phase(board_)
 
     evaluation += evaluate_pawn_features(board_)
     evaluation += evaluate_knight_features(board_)

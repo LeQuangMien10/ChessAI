@@ -21,7 +21,11 @@ AI_VS_PLAYER = 3
 
 # Game
 MAX_DEPTH = 10
-TIME_LIMIT = 9
+TIME_LIMIT = 8
+
+CHECKMATE_SCORE = 3000000
+CHECKMATE_THRESHOLD = 2900000
+
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 HISTORY_TABLE_FILE = 'history_table.pkl'
 
@@ -93,6 +97,41 @@ KING_POSITION_BONUS = [
     [ 20,  30,  10,   0,   0,   10, 30,  20]
 ]
 
+# config.py
+KING_POSITION_BONUS_MG = KING_POSITION_BONUS
+
+KING_POSITION_BONUS_EG = [ # Khuyến khích Vua ra trung tâm
+    [-50, -30, -10,  0,  0, -10, -30, -50],
+    [-30, -10,  20, 30, 30, 20, -10, -30],
+    [-10,  20,  40, 50, 50, 40,  20, -10],
+    [  0,  30,  50, 55, 55, 50,  30,   0],
+    [  0,  30,  50, 55, 55, 50,  30,   0],
+    [-10,  20,  40, 50, 50, 40,  20, -10],
+    [-30, -10,  20, 30, 30, 20, -10, -30],
+    [-50, -30, -10,  0,  0, -10, -30, -50]
+]
+# Tương tự, có thể tạo PAWN_POSITION_BONUS_MG/EG nếu muốn nhấn mạnh Tốt tiến ở EG
+PAWN_POSITION_BONUS_MG = PAWN_POSITION_BONUS # Giữ nguyên cho MG
+PAWN_POSITION_BONUS_EG = [ # Ví dụ: tăng mạnh giá trị Tốt ở hàng 6, 7
+    [  0,   0,   0,   0,   0,   0,   0,   0],
+    [100, 100, 100, 100, 100, 100, 100, 100], # Hàng 7 (index 1)
+    [ 80,  80,  80,  80,  80,  80,  80,  80], # Hàng 6
+    [ 50,  50,  50,  50,  50,  50,  50,  50],
+    [ 20,  20,  20,  30,  30,  20,  20,  20],
+    [ 10,  10,  10,  10,  10,  10,  10,  10],
+    [  5,   5,   5,   5,   5,   5,   5,   5],
+    [  0,   0,   0,   0,   0,   0,   0,   0]
+]
+# PST cho các quân khác có thể giữ nguyên MG/EG ban đầu
+KNIGHT_POSITION_BONUS_MG = KNIGHT_POSITION_BONUS
+KNIGHT_POSITION_BONUS_EG = KNIGHT_POSITION_BONUS # Hoặc giảm nhẹ giá trị ở trung tâm
+BISHOP_POSITION_BONUS_MG = BISHOP_POSITION_BONUS
+BISHOP_POSITION_BONUS_EG = BISHOP_POSITION_BONUS
+ROOK_POSITION_BONUS_MG = ROOK_POSITION_BONUS
+ROOK_POSITION_BONUS_EG = ROOK_POSITION_BONUS
+QUEEN_POSITION_BONUS_MG = QUEEN_POSITION_BONUS
+QUEEN_POSITION_BONUS_EG = QUEEN_POSITION_BONUS # Hậu thường yếu đi ở EG
+
 PIECE_VALUES = {
     chess.PAWN: 100,
     chess.KNIGHT: 300,
@@ -100,6 +139,23 @@ PIECE_VALUES = {
     chess.ROOK: 500,
     chess.QUEEN: 900,
     chess.KING: 0
+}
+
+PIECE_VALUES_MG = {
+    chess.PAWN: 100,
+    chess.KNIGHT: 305,
+    chess.BISHOP: 330,
+    chess.ROOK: 500,
+    chess.QUEEN: 975,
+    chess.KING: 0
+}
+PIECE_VALUES_EG = {
+    chess.PAWN: 120,
+    chess.KNIGHT: 300,
+    chess.BISHOP: 315, # Giá trị tương đối có thể giảm nhẹ
+    chess.ROOK: 530,
+    chess.QUEEN: 950,
+    chess.KING: 0 # Vua sẽ có giá trị vị trí ở EG
 }
 
 CENTER_MANHATTAN_DISTANCE = [
