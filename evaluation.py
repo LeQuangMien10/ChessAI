@@ -45,10 +45,10 @@ def evaluate_position(board_):
 
     eval_components['material'] = material(board_) * EVAL_WEIGHTS['material']
     eval_components['piece_square_tables'] = piece_square_tables(board_) * EVAL_WEIGHTS['piece_square_tables']
-    eval_components['mobility'] = mobility(board_) * EVAL_WEIGHTS['mobility']
-    eval_components['trapped_pieces'] = trapped_pieces(board_) * EVAL_WEIGHTS['trapped_pieces']
-    eval_components['space'] = space(board_) * EVAL_WEIGHTS['space']
-    eval_components['evaluate_pieces'] = evaluate_pieces(board_)
+    # eval_components['mobility'] = mobility(board_) * EVAL_WEIGHTS['mobility']
+    # eval_components['trapped_pieces'] = trapped_pieces(board_) * EVAL_WEIGHTS['trapped_pieces']
+    # eval_components['space'] = space(board_) * EVAL_WEIGHTS['space']
+    # eval_components['evaluate_pieces'] = evaluate_pieces(board_)
 
 
 

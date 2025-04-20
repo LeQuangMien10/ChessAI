@@ -20,7 +20,8 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
-DEFAULT_DEPTH = 5
+MAX_DEPTH = 10
+TIME_LIMIT = 9
 TRANSPOSITION_FILE = 'transposition_table.pkl'
 HISTORY_TABLE_FILE = 'history_table.pkl'
 

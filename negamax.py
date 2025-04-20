@@ -9,7 +9,6 @@ from evaluation import evaluate_position
 from move_ordering import order_moves, static_exchange_evaluation  # <<<--- IMPORT HÀM SẮP XẾP
 from transposition_table import TranspositionTable, NodeType
 
-
 NMP_MIN_DEPTH = 3
 NMP_REDUCTION = 3
 LMR_MIN_DEPTH = 3
@@ -18,8 +17,8 @@ LMR_MIN_MOVE_COUNT = 4
 CHECKMATE_SCORE = 3000000
 CHECKMATE_THRESHOLD = 2900000
 
-
 MAX_PLY = 64
+
 
 # --- Cấu trúc dữ liệu tạm thời (nếu chưa có) ---
 # Nếu bạn chưa có cấu trúc quản lý search data (TT, Killers, History),
@@ -86,7 +85,6 @@ def quiescence_search(board_, alpha, beta, tt):
     # --- Update alpha ---
     alpha = max(alpha, stand_pat)
 
-
     # --- Generate and Order Tactical Moves ---
     # Chỉ xét bắt quân (có thể thêm phong cấp nếu muốn)
     tactical_moves = [move for move in board_.legal_moves if board_.is_capture(move)]
@@ -108,11 +106,12 @@ def quiescence_search(board_, alpha, beta, tt):
         # --- Update alpha/beta ---
         if score >= beta:
             tt.store(zobrist_key, 0, beta, NodeType.LOWER_BOUND, move)
-            return beta # Fail high
+            return beta  # Fail high
 
         alpha = max(alpha, score)
 
     return alpha
+
 
 def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: int,
             tt: TranspositionTable, search_data_: DummySearchData, do_null: bool = True):  # <<< Thêm tham số ply
@@ -133,7 +132,7 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
     if board_.is_checkmate():
         return -CHECKMATE_SCORE + ply
     if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
-        return 0 # Hòa
+        return 0  # Hòa
 
     # --- Giảm độ sâu ---
     is_root = (ply == 0)
@@ -183,20 +182,20 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
 
     # --- 4. Sinh và Sắp xếp Nước đi ---
     legal_moves = list(board_.legal_moves)
-    if not legal_moves: # Có thể xảy ra nếu NMP dẫn đến thế bí (rất hiếm nếu logic đúng)
-        return 0 # Hòa
+    if not legal_moves:  # Có thể xảy ra nếu NMP dẫn đến thế bí (rất hiếm nếu logic đúng)
+        return 0  # Hòa
 
     # Lấy thông tin sắp xếp
     killers = search_data_.get_killer_moves(ply)
     history = search_data_.history_heuristic_table
     # Ưu tiên tt_move (hash_move) nếu có
-    pv_move = None # Lấy từ ID hoặc TT nếu có chiến lược lưu PV
+    pv_move = None  # Lấy từ ID hoặc TT nếu có chiến lược lưu PV
 
     ordered_legal_moves = order_moves(
         board=board_,
         moves=legal_moves,
         pv_move=pv_move,
-        hash_move=tt_move, # Sử dụng TT_MOVE từ PROBE
+        hash_move=tt_move,  # Sử dụng TT_MOVE từ PROBE
         killer_moves=killers,
         history=history,
         ply=ply
@@ -212,7 +211,7 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
         is_capture = board_.is_capture(move)
         is_promotion = move.promotion is not None
         # gives_check = board_.gives_check(move) # Có thể tốn kém, cân nhắc
-        is_quiet = not is_capture and not is_promotion #and not gives_check
+        is_quiet = not is_capture and not is_promotion  # and not gives_check
 
         board_.push(move)
 
@@ -220,18 +219,18 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
         # --- Late Move Reduction (LMR) ---
         reduction = 0
         can_lmr = (
-            depth_ >= LMR_MIN_DEPTH and
-            move_count > LMR_MIN_MOVE_COUNT and
-            is_quiet and
-            move != tt_move and # Không giảm hash move
-            (killers is None or move not in killers) # Không giảm killer moves
+                depth_ >= LMR_MIN_DEPTH and
+                move_count > LMR_MIN_MOVE_COUNT and
+                is_quiet and
+                move != tt_move and  # Không giảm hash move
+                (killers is None or move not in killers)  # Không giảm killer moves
         )
 
         if can_lmr:
             # Tính toán mức giảm (ví dụ đơn giản)
             # reduction = LMR_BASE_REDUCTION + (depth_ // 4) + (move_count // 8) # Công thức ví dụ
-            reduction = 1 # Giảm 1 đơn giản
-            reduction = min(reduction, depth_ - 2) # Đảm bảo depth còn lại ít nhất 1
+            reduction = 1  # Giảm 1 đơn giản
+            reduction = min(reduction, depth_ - 2)  # Đảm bảo depth còn lại ít nhất 1
             reduction = max(reduction, 0)
 
             # Tìm kiếm giảm với Zero Window
@@ -239,20 +238,20 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
                              ply + 1, tt, search_data_, do_null=True)
         else:
             # Đặt reduction = -1 để đánh dấu là chưa tìm kiếm hoặc tìm kiếm đủ sâu
-            reduction = -1 # Hoặc 0 nếu không dùng logic re-search phức tạp
+            reduction = -1  # Hoặc 0 nếu không dùng logic re-search phức tạp
 
         # --- Re-search nếu LMR có vẻ tốt hoặc tìm kiếm bình thường ---
         # Nếu tìm kiếm giảm tốt hơn alpha (hoặc nếu không dùng LMR)
-        if reduction != -1 and score > alpha: # Điều kiện re-search sau LMR
+        if reduction != -1 and score > alpha:  # Điều kiện re-search sau LMR
             score = -negamax(board_, depth_ - 1, -alpha - 1, -alpha,
-                             ply + 1, tt, search_data_, do_null=True) # Có thể thử ZW trước re-search full window
-            if score > alpha: # Vẫn tốt -> Re-search full window
-                 score = -negamax(board_, depth_ - 1, -beta, -alpha,
-                                  ply + 1, tt, search_data_, do_null=True)
+                             ply + 1, tt, search_data_, do_null=True)  # Có thể thử ZW trước re-search full window
+            if score > alpha:  # Vẫn tốt -> Re-search full window
+                score = -negamax(board_, depth_ - 1, -beta, -alpha,
+                                 ply + 1, tt, search_data_, do_null=True)
 
-        elif reduction == -1 : # Tìm kiếm bình thường (không LMR)
-             score = -negamax(board_, depth_ - 1, -beta, -alpha,
-                              ply + 1, tt, search_data_, do_null=True)
+        elif reduction == -1:  # Tìm kiếm bình thường (không LMR)
+            score = -negamax(board_, depth_ - 1, -beta, -alpha,
+                             ply + 1, tt, search_data_, do_null=True)
 
         board_.pop()
 
@@ -265,33 +264,35 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
         alpha = max(alpha, score)
         if alpha >= beta:
             # *** CUTOFF (Fail High / Beta Cutoff) ***
-            if is_quiet: # Chỉ cập nhật killer/history cho nước yên lặng
+            if is_quiet:  # Chỉ cập nhật killer/history cho nước yên lặng
                 search_data_.store_killer_move(ply, move)
                 search_data_.update_history_score(move, depth_)
-            break # Dừng duyệt
+            break  # Dừng duyệt
 
     # --- 6. TT Store ---
     node_type: int
     if max_score <= original_alpha:
-        node_type = NodeType.UPPER_BOUND # Fail Low
+        node_type = NodeType.UPPER_BOUND  # Fail Low
     elif max_score >= beta:
-        node_type = NodeType.LOWER_BOUND # Fail High
+        node_type = NodeType.LOWER_BOUND  # Fail High
     else:
-        node_type = NodeType.EXACT      # PV Node
+        node_type = NodeType.EXACT  # PV Node
 
     # Chỉ lưu nếu không bị cắt tỉa ở gốc hoặc có nước đi tốt
-    if best_move_found_in_node is not None or node_type == NodeType.LOWER_BOUND: # Cần có nước đi để lưu LOWER_BOUND
+    if best_move_found_in_node is not None or node_type == NodeType.LOWER_BOUND:  # Cần có nước đi để lưu LOWER_BOUND
         tt.store(zobrist_key, depth_, max_score, node_type, best_move_found_in_node)
 
     return max_score
 
 
-def get_best_move(board_: chess.Board, depth_: int, tt: TranspositionTable) -> Optional[chess.Move]:
+def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable, time_limit_seconds: Optional[float] = TIME_LIMIT) -> Optional[chess.Move]:
     """
-    Tìm nước đi tốt nhất theo negamax, sử dụng sắp xếp nước đi ở gốc, bảng băm (nên dùng thêm ID).
+    Tìm nước đi tốt nhất theo negamax, sử dụng sắp xếp nước đi ở gốc,
+    bảng băm và ID.
     :param board_: bàn cờ
-    :param depth_: độ sâu tìm kiếm tối đa
+    :param target_depth: độ sâu tìm kiếm tối đa
     :param tt: Bảng băm (Transition Table)
+    :param time_limit_seconds: Thời gian giới hạn
     :return: nước đi tốt nhất (chess.Move) hoặc None nếu không có nước đi hợp lệ
     """
     start_time = time.time()
@@ -299,77 +300,187 @@ def get_best_move(board_: chess.Board, depth_: int, tt: TranspositionTable) -> O
     global search_data  # Sử dụng search_data toàn cục hoặc truyền vào
     search_data = DummySearchData()  # Reset hoặc khởi tạo lại cho mỗi lần tìm kiếm mới (tùy chiến lược)
 
-    best_move: Optional[chess.Move] = None
-    best_score_this_iteration = float('-inf') # Đổi tên để rõ ràng hơn khi có ID
-    alpha = float('-inf')
-    beta = float('inf')
-    ply = 0  # Bắt đầu ở gốc, ply = 0
+    # --- Biến cho Iterative Deepening ---
+    best_move_overall: Optional[chess.Move] = None
+    best_score_overall = float('-inf')
+    pv_line_overall = [] # Lưu PV từ lần lặp sâu nhất
+    final_depth = 0
 
-    # --- Iterative Deepening (KHUYẾN KHÍCH MẠNH MẼ) ---
-    # Nên thực hiện tìm kiếm trong vòng lặp for current_depth in range(1, depth_ + 1):
-    # Để đơn giản, vẫn giữ tìm kiếm 1 lần như trước
-    current_depth = depth_ # Thay thế depth_ bằng current_depth trong vòng lặp ID
-
-    # --- Lấy và Sắp xếp Nước đi ở Gốc ---
+    # Lấy danh sách nước đi hợp lệ một lần ở đầu
     legal_moves = list(board_.legal_moves)
-    if not legal_moves: return None
+    if not legal_moves:
+        print("\nError: No legal moves at root.")
+        return None # Trả về None nếu không có nước đi
 
-    zobrist_key = chess.polyglot.zobrist_hash(board_)
-    hash_move = tt.get_pv_move(zobrist_key) # Lấy từ lần lặp ID trước
-    history = search_data.history_heuristic_table
-    pv_move = hash_move
+    # --- Vòng lặp Iterative Deepening ---
+    for current_depth in range(1, target_depth + 1):
+        ply = 0
+        alpha = -CHECKMATE_SCORE # Đặt lại alpha/beta cho mỗi độ sâu
+        beta = CHECKMATE_SCORE
+        best_move_this_iteration: Optional[chess.Move] = None
+        best_score_this_iteration = float('-inf') # Điểm tốt nhất ở độ sâu hiện tại
 
-    ordered_legal_moves = order_moves(
-        board=board_, moves=legal_moves, pv_move=pv_move,
-        hash_move=hash_move, killer_moves=None, history=history, ply=ply
-    )
+        # --- Lấy và Sắp xếp Nước đi ở Gốc (quan trọng là dùng kết quả từ lần lặp trước) ---
+        zobrist_key = chess.polyglot.zobrist_hash(board_)
+        # Ưu tiên nước đi từ TT của lần lặp trước (nếu có)
+        hash_move = tt.get_pv_move(zobrist_key) # Hoặc lấy từ pv_line_overall[0] nếu có
+        history = search_data.history_heuristic_table # History có thể tích lũy
 
-    # --- Duyệt qua các nước đi gốc ---
-    for i, move in enumerate(ordered_legal_moves):
-        board_.push(move)
-        # Gọi negamax với độ sâu hiện tại - 1
-        score = -negamax(board_, current_depth - 1, -beta, -alpha, ply + 1, tt, search_data,
-                         do_null=True)
-        board_.pop()
+        ordered_legal_moves = order_moves(
+            board=board_, moves=legal_moves,
+            pv_move=hash_move, # Sử dụng nước đi tốt nhất từ lần trước
+            hash_move=hash_move, # Có thể giống pv_move ở gốc
+            killer_moves=None, history=history, ply=ply
+        )
 
-        # Trong Iterative Deepening, bạn sẽ cập nhật alpha ở đây
-        # và có thể có cửa sổ tìm kiếm hẹp hơn cho các nước đi sau nước đi đầu tiên.
-        # Ví dụ: if i == 0: alpha = score ... else: score = -negamax(..., -alpha-1, -alpha,...)
+        # Nếu chỉ có 1 nước đi, không cần tìm sâu hơn nữa
+        if len(ordered_legal_moves) == 1 and current_depth > 1:
+             best_move_overall = ordered_legal_moves[0]
+             print(f"\nForced move: {board_.san(best_move_overall)}")
+             # Có thể tính điểm cho nước đi này nếu muốn, nhưng không cần thiết
+             break # Thoát vòng lặp ID
 
-        print(f"Move: {board_.san(move)}, Score: {score:.0f}") # In điểm
+        print(f"\n--- Searching Depth {current_depth} ---")
 
-        if score > best_score_this_iteration:
-            best_score_this_iteration = score
-            best_move = move
-            # Trong ID, bạn sẽ cập nhật alpha = score ở đây cho nước đi đầu tiên
+        # --- Duyệt qua các nước đi gốc ở độ sâu hiện tại ---
+        for i, move in enumerate(ordered_legal_moves):
 
-        # Cập nhật alpha (quan trọng cho các lần gọi sau ở gốc)
-        alpha = max(alpha, score)
+            # --- Kiểm tra Thời gian (Cơ bản) ---
+            if time_limit_seconds is not None:
+                elapsed_time = time.time() - start_time
+                if elapsed_time > time_limit_seconds:
+                    print(f"\nTime limit reached ({elapsed_time:.1f}s) at depth {current_depth}. Returning best move from depth {current_depth-1}.")
+                    # Không cập nhật best_move_overall nữa, trả về kết quả cũ
+                    return best_move_overall # Trả về kết quả tốt nhất từ lần lặp TRƯỚC ĐÓ
 
-        # Có thể thêm logic dừng sớm trong ID nếu cần
+            # <<<--- Tính SAN trước khi push/pop ---<<<
+            try:
+                move_san = board_.san(move)
+            except ValueError: # Xử lý nếu move không hợp lệ (ít khả năng nhưng đề phòng)
+                 move_san = move.uci()
+                 print(f"Warning: Could not get SAN for move {move.uci()} in current position. Using UCI.")
 
-    # In thông tin (ví dụ: PV từ TT)
-    pv_line = []
-    curr_board = board_.copy()
-    key = zobrist_key
-    try:
-        for _ in range(current_depth): # Giới hạn độ dài PV theo độ sâu
-            entry = tt.table.get(key)
-            if not entry or not entry.best_move: break
-            move = entry.best_move
-            if move not in curr_board.legal_moves: break # An toàn
-            san = curr_board.san(move)
-            pv_line.append(san)
-            curr_board.push(move)
-            key = chess.polyglot.zobrist_hash(curr_board)
-    except Exception as e:
-        print(f"Error extracting PV: {e}") # Bắt lỗi
 
-    if best_move:
-        san = board_.san(best_move)
-        pv_str = " ".join(pv_line)
-        print(f"\nDepth: {current_depth}, Best: {san}, Score: {best_score_this_iteration:.0f}, PV: {pv_str}, Time: {time.time() - start_time:.2f}s, TT: {len(tt)}")
+            board_.push(move)
+            score = float('-inf')
+
+            # --- Logic Aspiration Windows (Cải thiện) ---
+            # use_aspiration = current_depth > 2 # Chỉ dùng từ depth 3 trở lên
+            use_aspiration = False # Turn off for now
+            if use_aspiration and i == 0 and best_score_overall > -CHECKMATE_THRESHOLD : # Chỉ dùng khi có điểm số hợp lệ từ lần trước
+                window_margin = 100 # Biên độ thử nghiệm
+                # Đặt cửa sổ quanh điểm số tốt nhất của lần lặp TRƯỚC ĐÓ
+                search_alpha = max(-CHECKMATE_SCORE + 1, best_score_overall - window_margin)
+                search_beta = min(CHECKMATE_SCORE - 1, best_score_overall + window_margin)
+                # print(f"  Trying aspiration window [{search_alpha}, {search_beta}] for {move_san}") # Debug
+
+                score = -negamax(board_, current_depth - 1, -search_beta, -search_alpha,
+                                 ply + 1, tt, search_data, do_null=True)
+
+                # --- Re-search nếu Aspiration thất bại ---
+                if score <= search_alpha: # Fail low
+                    print(f"    Aspiration fail low ({score:.0f} <= {search_alpha}). Re-searching below alpha...")
+                    # Tìm kiếm lại với cửa sổ (-inf, alpha cũ)
+                    score = -negamax(board_, current_depth - 1, -beta, -search_alpha, # <<<--- Dùng -beta và -search_alpha
+                                     ply + 1, tt, search_data, do_null=True)
+                elif score >= search_beta: # Fail high
+                    print(f"    Aspiration fail high ({score:.0f} >= {search_beta}). Re-searching above beta...")
+                     # Tìm kiếm lại với cửa sổ (beta cũ, +inf)
+                    score = -negamax(board_, current_depth - 1, -search_beta, -alpha, # <<<--- Dùng -search_beta và -alpha
+                                     ply + 1, tt, search_data, do_null=True)
+
+            else: # Không dùng Aspiration hoặc lần lặp đầu
+                 # Tìm kiếm với cửa sổ đầy đủ
+                 score = -negamax(board_, current_depth - 1, -beta, -alpha,
+                                  ply + 1, tt, search_data, do_null=True)
+
+            board_.pop()
+
+            print(f"  Move: {move_san}, Score: {score:.0f}") # In điểm từng nước
+
+            # --- Cập nhật nước đi tốt nhất cho lần lặp này ---
+            if score > best_score_this_iteration:
+                best_score_this_iteration = score
+                best_move_this_iteration = move
+
+            # --- Cập nhật Alpha (Quan trọng cho các nước tiếp theo ở gốc) ---
+            # Nước đi đầu tiên đặt cận dưới alpha
+            if score > alpha:
+                alpha = score
+
+                best_move_overall = move
+                best_score_overall = score
+
+        # --- Kết thúc vòng lặp duyệt nước đi gốc ---
+
+        # Kiểm tra thời gian một lần nữa sau khi duyệt hết các nước đi ở độ sâu hiện tại
+        if time_limit_seconds is not None:
+             elapsed_time = time.time() - start_time
+             if elapsed_time > time_limit_seconds:
+                 print(f"\nTime limit reached ({elapsed_time:.1f}s) after completing depth {current_depth}"
+                       f". Returning best move.")
+                 return best_move_overall
+
+             # --- Trích xuất PV từ TT sau mỗi độ sâu hoàn thành ---
+             pv_line_current = []
+             curr_board_pv = board_.copy()
+             key_pv = zobrist_key
+             try:
+                 for _ in range(current_depth):
+                     entry = tt.table.get(key_pv)
+                     if not entry or not entry.best_move: break  # Dừng nếu không có entry hoặc best_move
+                     # Không lọc theo node_type ở đây, lấy nước đi tốt nhất TT gợi ý
+                     pv_move_in_line = entry.best_move
+                     # Kiểm tra nước đi có hợp lệ không TRƯỚC khi push
+                     if pv_move_in_line not in curr_board_pv.legal_moves:
+                         # print(f"PV extraction error: {pv_move_in_line.uci()} not legal in {curr_board_pv.fen()}")
+                         break
+                     san = curr_board_pv.san(pv_move_in_line)
+                     pv_line_current.append(san)
+                     curr_board_pv.push(pv_move_in_line)
+                     key_pv = chess.polyglot.zobrist_hash(curr_board_pv)
+                     if len(pv_line_current) > MAX_PLY: break  # Giới hạn chiều dài PV
+             except Exception as e:
+                 print(f"Error extracting PV at depth {current_depth}: {e}")
+
+             pv_line_overall = pv_line_current # Lưu PV của lần lặp sâu nhất thành công
+             pv_str = " ".join(pv_line_overall)
+             try:
+                 best_move_san_print = board_.san(best_move_overall)
+             except:
+                 best_move_san_print = best_move_overall.uci()
+             print(f"Depth {current_depth} completed. Best: {best_move_san_print}, Score: {best_score_overall:.0f}, PV: {pv_str}")
+        else:
+            # Trường hợp lạ: Không tìm thấy nước đi nào ở độ sâu hiện tại?
+            print(f"Warning: No best move found at depth {current_depth}. Using previous best.")
+            # Không cập nhật best_move_overall, giữ nguyên từ lần trước
+            break # Dừng ID nếu không tìm được nước đi
+
+        # --- Kiểm tra Mate Score ---
+        if abs(best_score_overall) > CHECKMATE_THRESHOLD:
+            print(f"Mate score ({best_score_overall:.0f}) found at depth {current_depth}. Stopping search.")
+            final_depth = current_depth
+            break
+
+        final_depth = current_depth
+
+
+    # --- Kết thúc vòng lặp Iterative Deepening ---
+    final_elapsed_time = time.time() - start_time
+
+    if best_move_overall:
+        try:
+             san = board_.san(best_move_overall)
+        except:
+             san = best_move_overall.uci() # Fallback
+        pv_str = " ".join(pv_line_overall)
+        print(f"\n--- Search Finished ---")
+        print(f"Final Depth Searched: {final_depth}, Best Move: {san}, Score: {best_score_overall:.0f}")
+        print(f"Principal Variation: {pv_str}")
+        print(f"Time: {final_elapsed_time:.2f}s, TT Entries: {len(tt)}")
     else:
-        print("\nNo legal moves found or error.")
+        print("\nCritical Error: No best move found after search.")
+        # Có thể trả về nước đi đầu tiên như một giải pháp cuối cùng nếu cần
+        if legal_moves: return legal_moves[0]
 
-    return best_move
+    return best_move_overall
