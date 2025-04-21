@@ -123,7 +123,7 @@ def handle_ai_turn(use_stockfish=False):
     if board.fullmove_number <= 12:
         book_move = get_book_move(board)
         if book_move:
-            print(f"🔖 Opening book move: {book_move}")
+            print(f"📖 Opening book move: {book_move}")
             board.push(book_move)
             return
 
@@ -152,11 +152,11 @@ def ai_vs_ai():
             running = False
             stockfish_engine.quit()
 
-    handle_ai_turn(use_stockfish=False)
+    handle_ai_turn(use_stockfish=True)
 
     if not board.is_game_over():
         update_screen()
-        handle_ai_turn(use_stockfish=True)
+        handle_ai_turn(use_stockfish=False)
     if board.is_game_over():
         handle_game_end()
         running = False
@@ -203,8 +203,8 @@ screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
 pygame.display.set_caption("Chess")
 
 # Khởi tạo Stockfish engine
-stockfish_path = "D:/stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
-stockfish_engine = StockfishEngine(stockfish_path, skill_level=6)  # Mức độ trung bình
+stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
+stockfish_engine = StockfishEngine(stockfish_path, skill_level=7)  # Mức độ trung bình
 
 game_mode = get_game_mode(screen)
 board = chess.Board()  # Sửa thế ở đây
