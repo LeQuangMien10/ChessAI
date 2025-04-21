@@ -16,6 +16,7 @@ LMR_MIN_MOVE_COUNT = 4
 
 QSEARCH_SEE_PRUNING_THRESHOLD = -75
 
+MAX_PLY = 64
 
 # --- Cấu trúc dữ liệu tạm thời (nếu chưa có) ---
 # Nếu bạn chưa có cấu trúc quản lý search data (TT, Killers, History),
@@ -433,7 +434,7 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
                       break # Thoát khỏi vòng lặp for move
 
 
-            print(f"  Move: {move_san}, Score: {score:.0f}") # In điểm từng nước
+            # print(f"  Move: {move_san}, Score: {score:.0f}") # In điểm từng nước
 
             # --- Cập nhật nước đi tốt nhất cho lần lặp này ---
             if score > best_score_this_iteration:
@@ -457,9 +458,23 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
 
                 # --- Trích xuất PV và In thông tin ---
                 pv_line_current = []
-                # ... (logic trích xuất PV như cũ) ...
+                curr_board_pv = board_.copy()
+                key_pv = zobrist_key
                 try:
-                    # ... (vòng lặp trích xuất) ...
+                    for _ in range(current_depth):
+                        entry = tt.table.get(key_pv)
+                        if not entry or not entry.best_move: break  # Dừng nếu không có entry hoặc best_move
+                        # Không lọc theo node_type ở đây, lấy nước đi tốt nhất TT gợi ý
+                        pv_move_in_line = entry.best_move
+                        # Kiểm tra nước đi có hợp lệ không TRƯỚC khi push
+                        if pv_move_in_line not in curr_board_pv.legal_moves:
+                            # print(f"PV extraction error: {pv_move_in_line.uci()} not legal in {curr_board_pv.fen()}")
+                            break
+                        san = curr_board_pv.san(pv_move_in_line)
+                        pv_line_current.append(san)
+                        curr_board_pv.push(pv_move_in_line)
+                        key_pv = chess.polyglot.zobrist_hash(curr_board_pv)
+                        if len(pv_line_current) > MAX_PLY: break
                     pv_line_completed_depth = pv_line_current
                     pv_str = " ".join(pv_line_completed_depth)
                     best_move_san_print = board_.san(best_move_completed_depth)
