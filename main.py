@@ -5,7 +5,13 @@ from game import *
 from negamax import get_best_move
 from fen_string_test import *
 from transposition_table import TranspositionTable
-
+import pygame.time
+from menu import *
+from game import *
+from negamax import get_best_move
+from fen_string_test import *
+from transposition_table import TranspositionTable
+from stockfish_test import StockfishEngine
 
 def handle_game_end():
     global running
@@ -112,7 +118,7 @@ def get_book_move(board):
     except (IndexError, FileNotFoundError):
         return None
 
-def handle_ai_turn():
+def handle_ai_turn(use_stockfish=False):
     # Ưu tiên book trong 10 nước đầu
     if board.fullmove_number <= 12:
         book_move = get_book_move(board)
@@ -121,13 +127,22 @@ def handle_ai_turn():
             board.push(book_move)
             return
 
-    # Nếu không có trong book → dùng AI
-    best_move = get_best_move(board, target_depth=MAX_DEPTH, tt=tt)
-    if best_move:
-        print(f"🧠 AI move: {board.san(best_move)}")
-        board.push(best_move)
+    # Chọn giữa Stockfish và AI của bạn
+    if use_stockfish:
+        best_move = stockfish_engine.get_best_move(board, time_limit=0.1)
+        if best_move:
+            print(f"🤖 Stockfish move: {board.san(best_move)}")
+            board.push(best_move)
+        else:
+            print("⚠️ No valid move found by Stockfish.")
     else:
-        print("⚠️ No valid move found by AI.")
+        # Nếu không có trong book → dùng AI hiện tại
+        best_move = get_best_move(board, target_depth=MAX_DEPTH, tt=tt)
+        if best_move:
+            print(f"🧠 AI move: {board.san(best_move)}")
+            board.push(best_move)
+        else:
+            print("⚠️ No valid move found by AI.")
 
 
 def ai_vs_ai():
@@ -135,16 +150,16 @@ def ai_vs_ai():
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
+            stockfish_engine.quit()
 
-    handle_ai_turn()
+    handle_ai_turn(use_stockfish=False)
 
     if not board.is_game_over():
         update_screen()
-        handle_ai_turn()
+        handle_ai_turn(use_stockfish=True)
     if board.is_game_over():
         handle_game_end()
         running = False
-
 
 def player_vs_player():
     global running, selected_square, legal_moves
@@ -183,10 +198,13 @@ def player_vs_player():
 
 
 # Bọc hàm main
-
 pygame.init()
 screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
 pygame.display.set_caption("Chess")
+
+# Khởi tạo Stockfish engine
+stockfish_path = "D:/stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
+stockfish_engine = StockfishEngine(stockfish_path, skill_level=6)  # Mức độ trung bình
 
 game_mode = get_game_mode(screen)
 board = chess.Board()  # Sửa thế ở đây
@@ -208,6 +226,7 @@ def main():
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
             ai_vs_player()
+    stockfish_engine.quit()
     pygame.quit()
 
 
