@@ -6,7 +6,7 @@ from typing import Optional  # Thêm Optional để gợi ý kiểu cho best_mov
 # Import các thành phần cần thiết từ các file khác
 from config import *  # Giả sử config chứa PIECE_VALUES nếu orders.py không định nghĩa lại
 from evaluation import evaluate_position
-from move_ordering import order_moves, static_exchange_evaluation  # <<<--- IMPORT HÀM SẮP XẾP
+from move_ordering import order_moves, static_exchange_evaluation, get_piece_value  # <<<--- IMPORT HÀM SẮP XẾP
 from transposition_table import TranspositionTable, NodeType
 
 NMP_MIN_DEPTH = 3
@@ -14,7 +14,7 @@ NMP_REDUCTION = 3
 LMR_MIN_DEPTH = 3
 LMR_MIN_MOVE_COUNT = 4
 
-MAX_PLY = 64
+QSEARCH_SEE_PRUNING_THRESHOLD = -75
 
 
 # --- Cấu trúc dữ liệu tạm thời (nếu chưa có) ---
@@ -62,13 +62,13 @@ def quiescence_search(board_, alpha, beta, tt):
     :return: Điểm sau khi đánh giá
     """
 
-    zobrist_key = chess.polyglot.zobrist_hash(board_)
-    tt_probe_result = tt.probe(zobrist_key, 0, alpha, beta)
-
-    if tt_probe_result is not None:
-        tt_score, _ = tt_probe_result
-        if tt_score is not None:
-            return tt_score
+    # zobrist_key = chess.polyglot.zobrist_hash(board_)
+    # tt_probe_result = tt.probe(zobrist_key, 0, alpha, beta)
+    #
+    # if tt_probe_result is not None:
+    #     tt_score, _ = tt_probe_result
+    #     if tt_score is not None:
+    #         return tt_score
 
     # --- Stand-pat score ---
     eval_score = evaluate_position(board_)
@@ -82,32 +82,57 @@ def quiescence_search(board_, alpha, beta, tt):
     # --- Update alpha ---
     alpha = max(alpha, stand_pat)
 
-    # --- Generate and Order Tactical Moves ---
-    # Chỉ xét bắt quân (có thể thêm phong cấp nếu muốn)
-    tactical_moves = [move for move in board_.legal_moves if board_.is_capture(move)]
-    # TODO: Sắp xếp tactical_moves (ví dụ: dùng SEE hoặc MVV-LVA)
-    # Ví dụ đơn giản: dùng SEE
-    move_scores = {move: static_exchange_evaluation(board_, move) for move in tactical_moves}
-    ordered_tactical_moves = sorted(tactical_moves, key=lambda m: move_scores.get(m, -float('inf')), reverse=True)
+    # --- Generate and Order Tactical Moves (Captures + Promotions) ---
+    tactical_moves_with_scores = []
+    for move in board_.legal_moves:
+        is_capture = board_.is_capture(move)
+        is_promotion = move.promotion is not None
+
+        if is_capture:
+            see_score = static_exchange_evaluation(board_, move)
+            # --- SEE Pruning ---
+            if see_score >= QSEARCH_SEE_PRUNING_THRESHOLD:
+                 # Ưu tiên dựa trên SEE (hoặc MVV-LVA)
+                 # Gán điểm cao cho bắt quân tốt để xét trước
+                 # Có thể dùng SEE trực tiếp hoặc cộng vào base lớn
+                 capture_priority = 10000 + see_score # Ví dụ base
+                 tactical_moves_with_scores.append((move, capture_priority))
+            # else: Bỏ qua nước bắt quân có SEE quá thấp
+
+        elif is_promotion:
+            # Ưu tiên phong cấp (đặc biệt là Hậu)
+            promo_value = get_piece_value(move.promotion)
+            promotion_priority = 8000 + promo_value # Base thấp hơn capture tốt
+            tactical_moves_with_scores.append((move, promotion_priority))
+
+    # Sắp xếp các nước đi chiến thuật theo điểm ưu tiên (cao xuống thấp)
+    ordered_tactical_moves = sorted(tactical_moves_with_scores, key=lambda item: item[1], reverse=True)
 
     # --- Loop through tactical moves ---
-    for move in ordered_tactical_moves:
-        # --- Delta Pruning (tùy chọn nâng cao) ---
-        # if stand_pat + get_piece_value(board_.piece_type_at(move.to_square)) + DELTA_MARGIN < alpha:
-        #     continue # Nếu bắt quân cũng không đủ để nâng alpha, bỏ qua
-
+    # best_move_q = None # Lưu nước đi tốt nhất trong QSearch (cho TT)
+    for move, _ in ordered_tactical_moves: # Chỉ cần move từ tuple
         board_.push(move)
         score = -quiescence_search(board_, -beta, -alpha, tt)
         board_.pop()
 
         # --- Update alpha/beta ---
-        if score >= beta:
-            tt.store(zobrist_key, 0, beta, NodeType.LOWER_BOUND, move)
-            return beta  # Fail high
+        if score > alpha: # Tìm được điểm tốt hơn alpha
+             alpha = score
+             # best_move_q = move # Cập nhật nước đi tốt nhất
+             if alpha >= beta:
+                  # --- Beta Cutoff ---
+                  # Lưu vào TT (depth=0, loại LOWER_BOUND)
+                  # zobrist_key = chess.polyglot.zobrist_hash(board_) # Tính lại key nếu chưa có
+                  # tt.store(zobrist_key, 0, beta, NodeType.LOWER_BOUND, best_move_q) # Lưu beta và nước đi gây cắt tỉa
+                  return beta # Fail high
 
-        alpha = max(alpha, score)
+    # --- Lưu vào TT nếu alpha được cải thiện (optional) ---
+    # if alpha > stand_pat: # Chỉ lưu nếu tìm được nước tốt hơn stand-pat
+    #     node_type = NodeType.EXACT # Vì nó nằm trong khoảng [stand_pat, beta)
+    #     zobrist_key = chess.polyglot.zobrist_hash(board_)
+    #     tt.store(zobrist_key, 0, alpha, node_type, best_move_q)
 
-    return alpha
+    return alpha # Trả về alpha cuối cùng (điểm tốt nhất tìm được)
 
 
 def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: int,
