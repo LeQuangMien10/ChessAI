@@ -22,9 +22,14 @@ class StockfishEngine:
         """Đóng engine để giải phóng tài nguyên."""
         self.engine.quit()
 
-    def calculate_elo(self, ai_elo, stockfish_elo, result, k=32):
-        """Tính toán Elo mới cho AI dựa trên kết quả trận đấu."""
+    def calculate_elo(self, ai_elo, stockfish_elo, result, ai_color, k=32):
+        """Tính toán Elo mới cho AI dựa trên kết quả trận đấu và màu cờ."""
         expected_score = 1 / (1 + 10 ** ((stockfish_elo - ai_elo) / 400))
-        actual_score = 1 if result == "1-0" else 0 if result == "0-1" else 0.5
+        # Xác định điểm thực tế dựa trên màu cờ của AI
+        if ai_color == chess.WHITE:
+            actual_score = 1 if result == "1-0" else 0 if result == "0-1" else 0.5
+        else:  # ai_color == chess.BLACK
+            actual_score = 1 if result == "0-1" else 0 if result == "1-0" else 0.5
         new_elo = ai_elo + k * (actual_score - expected_score)
         return new_elo
+

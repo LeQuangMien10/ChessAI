@@ -12,18 +12,30 @@ from negamax import get_best_move
 from fen_string_test import *
 from transposition_table import TranspositionTable
 from stockfish_test import StockfishEngine
+import chess.polyglot
 
-def handle_game_end():
-    global running
+with open("elo.txt", "r") as file:
+    ai_elo = float(file.readline().strip())
+
+def handle_game_end(ai_color):
+    global running, ai_elo
     update_screen()
     result = "Checkmate" if board.is_checkmate() else "Draw"
     font = pygame.font.Font(None, 32)
     text = font.render(result, True, (0, 0, 0))
     screen.blit(text, (BOARD_SIZE // 2 - 50, BOARD_SIZE // 2))
     pygame.display.flip()
+
+    # Tính Elo nếu chơi với Stockfish
+    if game_mode == TWO_AIS:
+        game_result = board.result()
+        ai_elo = stockfish_engine.calculate_elo(ai_elo, stockfish_elo, game_result, ai_color)
+        print(f"Game result: {game_result}, New AI Elo: {ai_elo:.2f}")
+        with open("elo.txt", "w") as file:
+            file.write(f"{ai_elo:.2f}\n")
+
     pygame.time.wait(2000)
     running = False
-
 
 def update_screen():
     screen.fill(WHITE)
@@ -119,7 +131,7 @@ def get_book_move(board):
         return None
 
 def handle_ai_turn(use_stockfish=False):
-    # Ưu tiên book trong 10 nước đầu
+    # Ưu tiên book trong 12 nước đầu
     if board.fullmove_number <= 12:
         book_move = get_book_move(board)
         if book_move:
@@ -146,19 +158,23 @@ def handle_ai_turn(use_stockfish=False):
 
 
 def ai_vs_ai():
+    # True: Stockfish (Trắng), AI (Đen)
+    # False: Stockfish (Đen), AI (Trắng)
+    use_stockfish = False
     global running
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
             stockfish_engine.quit()
 
-    handle_ai_turn(use_stockfish=True)
+    handle_ai_turn(use_stockfish)
 
     if not board.is_game_over():
         update_screen()
-        handle_ai_turn(use_stockfish=False)
+        handle_ai_turn(not use_stockfish)
     if board.is_game_over():
-        handle_game_end()
+        ai_color = chess.BLACK if use_stockfish else chess.WHITE
+        handle_game_end(ai_color)  # Màu AI
         running = False
 
 def player_vs_player():
@@ -196,7 +212,6 @@ def player_vs_player():
             handle_game_end()
             break
 
-
 # Bọc hàm main
 pygame.init()
 screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
@@ -204,7 +219,17 @@ pygame.display.set_caption("Chess")
 
 # Khởi tạo Stockfish engine
 stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
-stockfish_engine = StockfishEngine(stockfish_path, skill_level=7)  # Mức độ trung bình
+stockfish_engine = StockfishEngine(stockfish_path, skill_level=4)  # Mức độ trung bình
+
+
+ELO_PER_SKILL_LEVEL = {
+    0: 1100, 1: 1250, 2: 1400, 3: 1550, 4: 1700, 5: 1850, 6: 2000, 7: 2150, 8: 2300, 9: 2450,
+    10: 2600, 11: 2725, 12: 2850, 13: 2975, 14: 3100, 15: 3200, 16: 3300, 17: 3400, 18: 2475, 19: 3550, 20: 3600
+}
+
+stockfish_elo = ELO_PER_SKILL_LEVEL[4]  # Elo của Stockfish tại Skill Level 4
+game_history = []
+
 
 game_mode = get_game_mode(screen)
 board = chess.Board()  # Sửa thế ở đây
@@ -231,4 +256,5 @@ def main():
 
 
 if __name__ == "__main__":
+    print()
     main()
