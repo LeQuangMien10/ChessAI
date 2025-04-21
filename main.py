@@ -1,11 +1,4 @@
 import pygame.time
-
-from menu import *
-from game import *
-from negamax import get_best_move
-from fen_string_test import *
-from transposition_table import TranspositionTable
-import pygame.time
 from menu import *
 from game import *
 from negamax import get_best_move
@@ -17,7 +10,7 @@ import chess.polyglot
 with open("elo.txt", "r") as file:
     ai_elo = float(file.readline().strip())
 
-def handle_game_end(ai_color):
+def handle_game_end(ai_color=None):
     global running, ai_elo
     update_screen()
     result = "Checkmate" if board.is_checkmate() else "Draw"
@@ -219,7 +212,7 @@ pygame.display.set_caption("Chess")
 
 # Khởi tạo Stockfish engine
 stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
-stockfish_engine = StockfishEngine(stockfish_path, skill_level=4)  # Mức độ trung bình
+stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)  # Mức độ trung bình
 
 
 ELO_PER_SKILL_LEVEL = {
@@ -227,7 +220,7 @@ ELO_PER_SKILL_LEVEL = {
     10: 2600, 11: 2725, 12: 2850, 13: 2975, 14: 3100, 15: 3200, 16: 3300, 17: 3400, 18: 2475, 19: 3550, 20: 3600
 }
 
-stockfish_elo = ELO_PER_SKILL_LEVEL[4]  # Elo của Stockfish tại Skill Level 4
+stockfish_elo = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
 game_history = []
 
 
