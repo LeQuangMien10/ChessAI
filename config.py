@@ -246,3 +246,9 @@ PIECE_PHASE = {
 }
 
 TOTAL_PHASE = 24  # tổng phase khi full quân
+
+Q_HASH_MOVE_SCORE = 100_000 # Nếu bạn quyết định dùng TT trong QSearch
+Q_PROMOTION_QUEEN_SCORE = 90_000
+Q_PROMOTION_OTHER_BASE = 85_000
+Q_CAPTURE_GOOD_SEE_BASE = 80_000 # Base cho capture có SEE >= 0
+Q_CAPTURE_BAD_SEE_BASE = 30_000  # Base cho capture có SEE < 0 (nhưng > ngưỡng)

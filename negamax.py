@@ -6,7 +6,8 @@ from typing import Optional  # Thêm Optional để gợi ý kiểu cho best_mov
 # Import các thành phần cần thiết từ các file khác
 from config import *  # Giả sử config chứa PIECE_VALUES nếu orders.py không định nghĩa lại
 from evaluation import evaluate_position
-from move_ordering import order_moves, static_exchange_evaluation, get_piece_value  # <<<--- IMPORT HÀM SẮP XẾP
+from move_ordering import order_moves, static_exchange_evaluation, get_piece_value, \
+    MVV_LVA_MULTIPLIER  # <<<--- IMPORT HÀM SẮP XẾP
 from transposition_table import TranspositionTable, NodeType
 
 NMP_MIN_DEPTH = 3
@@ -15,6 +16,7 @@ LMR_MIN_DEPTH = 3
 LMR_MIN_MOVE_COUNT = 4
 
 QSEARCH_SEE_PRUNING_THRESHOLD = -75
+DELTA_PRUNING_MARGIN = 150
 
 MAX_PLY = 64
 
@@ -81,37 +83,72 @@ def quiescence_search(board_, alpha, beta, tt):
         return beta
 
     # --- Update alpha ---
+    original_alpha = alpha
     alpha = max(alpha, stand_pat)
 
     # --- Generate and Order Tactical Moves (Captures + Promotions) ---
     tactical_moves_with_scores = []
     for move in board_.legal_moves:
-        is_capture = board_.is_capture(move)
+        is_capture = board_.is_capture(move) or board_.is_en_passant(move)
         is_promotion = move.promotion is not None
+        move_score = -float('inf')
 
         if is_capture:
+            # --- SEE Pruning (Kiểm tra sớm) ---
             see_score = static_exchange_evaluation(board_, move)
-            # --- SEE Pruning ---
-            if see_score >= QSEARCH_SEE_PRUNING_THRESHOLD:
-                 # Ưu tiên dựa trên SEE (hoặc MVV-LVA)
-                 # Gán điểm cao cho bắt quân tốt để xét trước
-                 # Có thể dùng SEE trực tiếp hoặc cộng vào base lớn
-                 capture_priority = 10000 + see_score # Ví dụ base
-                 tactical_moves_with_scores.append((move, capture_priority))
-            # else: Bỏ qua nước bắt quân có SEE quá thấp
+            if see_score < QSEARCH_SEE_PRUNING_THRESHOLD:
+                continue # Bỏ qua nếu SEE quá tệ
+
+            # --- Tính MVV-LVA cho Ordering ---
+            captured_piece_type = None
+            if board_.is_en_passant(move): captured_piece_type = chess.PAWN
+            else:
+                captured_piece = board_.piece_at(move.to_square)
+                if captured_piece: captured_piece_type = captured_piece.piece_type
+
+            attacker_piece_type = board_.piece_type_at(move.from_square)
+
+            if captured_piece_type and attacker_piece_type:
+                victim_value = get_piece_value(captured_piece_type)
+                attacker_value = get_piece_value(attacker_piece_type)
+                # Điểm MVV-LVA cơ bản
+                mvv_lva_raw = (victim_value * MVV_LVA_MULTIPLIER) - attacker_value
+
+                # Gán điểm ưu tiên dựa trên SEE và MVV-LVA
+                if see_score >= 0:
+                     move_score = Q_CAPTURE_GOOD_SEE_BASE + mvv_lva_raw
+                else: # SEE < 0 nhưng >= ngưỡng
+                     move_score = Q_CAPTURE_BAD_SEE_BASE + mvv_lva_raw # Base thấp hơn
+                tactical_moves_with_scores.append((move, move_score, captured_piece_type)) # Lưu cả captured type cho Delta Pruning
+            # else: Lỗi không lấy được type? Bỏ qua?
 
         elif is_promotion:
-            # Ưu tiên phong cấp (đặc biệt là Hậu)
+            # Ưu tiên phong cấp
             promo_value = get_piece_value(move.promotion)
-            promotion_priority = 8000 + promo_value # Base thấp hơn capture tốt
-            tactical_moves_with_scores.append((move, promotion_priority))
+            if move.promotion == chess.QUEEN:
+                 move_score = Q_PROMOTION_QUEEN_SCORE + promo_value
+            else:
+                 move_score = Q_PROMOTION_OTHER_BASE + promo_value
+            tactical_moves_with_scores.append((move, move_score, None)) # Không có captured type
 
     # Sắp xếp các nước đi chiến thuật theo điểm ưu tiên (cao xuống thấp)
     ordered_tactical_moves = sorted(tactical_moves_with_scores, key=lambda item: item[1], reverse=True)
 
     # --- Loop through tactical moves ---
-    # best_move_q = None # Lưu nước đi tốt nhất trong QSearch (cho TT)
-    for move, _ in ordered_tactical_moves: # Chỉ cần move từ tuple
+    best_move_q = None # Lưu nước đi tốt nhất trong QSearch (cho TT)
+    for move, _, captured_type in ordered_tactical_moves: # Chỉ cần move từ tuple
+        # --- Delta Pruning (Áp dụng sau khi đã cập nhật alpha với stand_pat) ---
+        # Chỉ áp dụng cho nước bắt quân đơn giản (không phải phong cấp bắt quân)
+        if captured_type is not None and move.promotion is None:
+             # Lấy giá trị quân bị bắt (có thể dùng get_piece_value)
+             captured_value = get_piece_value(captured_type)
+             # Kiểm tra Delta Pruning
+             if stand_pat + captured_value + DELTA_PRUNING_MARGIN < alpha:
+                  # Nếu điểm hiện tại + giá trị tối đa có thể ăn + margin < alpha
+                  # thì nước bắt quân này khó có khả năng cải thiện -> bỏ qua
+                  continue # Prune!
+
+
         board_.push(move)
         score = -quiescence_search(board_, -beta, -alpha, tt)
         board_.pop()
@@ -119,7 +156,7 @@ def quiescence_search(board_, alpha, beta, tt):
         # --- Update alpha/beta ---
         if score > alpha: # Tìm được điểm tốt hơn alpha
              alpha = score
-             # best_move_q = move # Cập nhật nước đi tốt nhất
+             best_move_q = move # Cập nhật nước đi tốt nhất
              if alpha >= beta:
                   # --- Beta Cutoff ---
                   # Lưu vào TT (depth=0, loại LOWER_BOUND)
