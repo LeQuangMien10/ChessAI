@@ -7,6 +7,7 @@ from transposition_table import TranspositionTable
 from stockfish_test import StockfishEngine
 import chess.polyglot
 import time
+import pygame.mixer
 
 with open("elo.txt", "r") as file:
     ai_elo = float(file.readline().strip())
@@ -16,6 +17,26 @@ pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Chess")
 
+# Khởi tạo mixer cho âm thanh
+pygame.mixer.init()
+
+# Load các âm thanh
+try:
+    MOVE_SOUND = pygame.mixer.Sound("sounds/move.mp3")
+    CAPTURE_SOUND = pygame.mixer.Sound("sounds/capture.mp3")
+    CHECK_SOUND = pygame.mixer.Sound("sounds/check.mp3")
+    CASTLE_SOUND = pygame.mixer.Sound("sounds/castle.mp3")
+    
+    # Điều chỉnh âm lượng cho từng loại âm thanh (giá trị từ 0.0 đến 1.0)
+    MOVE_SOUND.set_volume(0.5)
+    CAPTURE_SOUND.set_volume(0.5)
+    CHECK_SOUND.set_volume(0.5)
+    CASTLE_SOUND.set_volume(0.5)
+    
+except:
+    print("Warning: Could not load some sound files")
+    # Tạo một dummy sound để tránh lỗi nếu không load được file
+    MOVE_SOUND = CAPTURE_SOUND = CHECK_SOUND = CASTLE_SOUND = pygame.mixer.Sound(buffer=bytes([0]*44))
 
 def handle_game_end(ai_color=None):
     global running, ai_elo
@@ -35,6 +56,7 @@ def handle_game_end(ai_color=None):
             file.write(f"{ai_elo:.2f}\n")
 
     pygame.time.wait(2000)
+    # Có thể thêm âm thanh kết thúc game ở đây nếu muốn
     running = False
 
 def update_screen():
@@ -75,6 +97,8 @@ def player_vs_ai():
                     legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
                 # Nếu là nước đi hợp lệ -> thực hiện nước đi
                 elif move in board.legal_moves:
+                    # Phát âm thanh trước khi thực hiện nước đi
+                    play_move_sound(board, move)
                     promote_pawn(board, move, screen)
                     try:
                         move_san = board.san(move)
@@ -174,6 +198,8 @@ def handle_ai_turn(use_stockfish=False):
         book_move = get_book_move(board)
         if book_move:
             print(f"📖 Opening book move: {book_move}")
+            # Phát âm thanh cho book move
+            play_move_sound(board, book_move)
             try:
                 move_san = board.san(book_move)
                 move_history.add_move(move_san, board.turn == chess.WHITE)
@@ -188,6 +214,8 @@ def handle_ai_turn(use_stockfish=False):
         best_move = stockfish_engine.get_best_move(board, time_limit=0.1)
         if best_move:
             print(f"🤖 Stockfish move: {board.san(best_move)}")
+            # Phát âm thanh cho Stockfish move
+            play_move_sound(board, best_move)
             try:
                 move_san = board.san(best_move)
                 move_history.add_move(move_san, board.turn == chess.WHITE)
@@ -212,6 +240,8 @@ def handle_ai_turn(use_stockfish=False):
         
         if best_move:
             print(f"🧠 AI move: {board.san(best_move)}")
+            # Phát âm thanh cho AI move
+            play_move_sound(board, best_move)
             try:
                 move_san = board.san(best_move)
                 move_history.add_move(move_san, board.turn == chess.WHITE)
@@ -281,6 +311,7 @@ def player_vs_player():
 
 # Khởi tạo Stockfish engine
 stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
+# stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # cái này của Phước ae comment thôi đừng xoá.
 stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)  # Mức độ trung bình
 
 
@@ -357,6 +388,9 @@ def main():
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
             ai_vs_player()
+    
+    # Dọn dẹp âm thanh khi thoát game
+    pygame.mixer.quit()
     stockfish_engine.quit()
     pygame.quit()
 

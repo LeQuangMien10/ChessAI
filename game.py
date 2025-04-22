@@ -1,4 +1,26 @@
 from config import *
+import pygame.mixer
+
+# Khởi tạo mixer cho âm thanh
+pygame.mixer.init()
+
+# Load các âm thanh
+try:
+    MOVE_SOUND = pygame.mixer.Sound("sounds/move.mp3")
+    CAPTURE_SOUND = pygame.mixer.Sound("sounds/capture.mp3")
+    CHECK_SOUND = pygame.mixer.Sound("sounds/check.mp3")
+    CASTLE_SOUND = pygame.mixer.Sound("sounds/castle.mp3")
+    
+    # Điều chỉnh âm lượng cho từng loại âm thanh (giá trị từ 0.0 đến 1.0)
+    MOVE_SOUND.set_volume(0.5)
+    CAPTURE_SOUND.set_volume(0.5)
+    CHECK_SOUND.set_volume(0.5)
+    CASTLE_SOUND.set_volume(0.5)
+    
+except:
+    print("Warning: Could not load some sound files")
+    # Tạo một dummy sound để tránh lỗi nếu không load được file
+    MOVE_SOUND = CAPTURE_SOUND = CHECK_SOUND = CASTLE_SOUND = pygame.mixer.Sound(buffer=bytes([0]*44))
 
 # Load ảnh quân cờ
 pieces = {}
@@ -230,3 +252,25 @@ def draw_info_panel(screen, move_history):
     
     screen.blit(depth_text, (x_start, info_y))
     screen.blit(time_text, (x_start, info_y + 30))
+
+def play_move_sound(board, move):
+    """
+    Phát âm thanh tương ứng với loại nước đi
+    """
+    # Kiểm tra nước nhập thành
+    if board.is_castling(move):
+        CASTLE_SOUND.play()
+        return
+    
+    # Kiểm tra nước bắt quân
+    if board.is_capture(move):
+        CAPTURE_SOUND.play()
+        return
+    
+    # Thực hiện nước đi để kiểm tra chiếu
+    board.push(move)
+    if board.is_check():
+        CHECK_SOUND.play()
+    else:
+        MOVE_SOUND.play()
+    board.pop()
