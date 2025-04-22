@@ -15,7 +15,7 @@ def draw_menu(screen):
     buttons = []
     for i in modes.keys():
         text = font.render(modes[i], True, (0, 0, 0))
-        rect = text.get_rect(center=(BOARD_SIZE // 2, 100 + i * 100))
+        rect = text.get_rect(center=(SCREEN_WIDTH // 2, 100 + i * 100))
         screen.blit(text, rect)
         buttons.append((rect, i))
 

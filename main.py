@@ -13,8 +13,7 @@ with open("elo.txt", "r") as file:
 
 # Bọc hàm main
 pygame.init()
-WINDOW_WIDTH = BOARD_SIZE + 200  # Thêm 200px bên phải
-screen = pygame.display.set_mode((WINDOW_WIDTH, BOARD_SIZE))
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Chess")
 
 
@@ -281,7 +280,7 @@ def player_vs_player():
 
 
 # Khởi tạo Stockfish engine
-stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # Thay bằng đường dẫn thực tế
+stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
 stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)  # Mức độ trung bình
 
 
