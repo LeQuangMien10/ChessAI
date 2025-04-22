@@ -308,7 +308,7 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
     return max_score
 
 
-def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable, time_limit_seconds: Optional[float] = TIME_LIMIT) -> Optional[chess.Move]:
+def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable, time_limit_seconds: Optional[float] = TIME_LIMIT) -> tuple[Optional[chess.Move], int]:
     """
     Tìm nước đi tốt nhất theo negamax, sử dụng sắp xếp nước đi ở gốc,
     bảng băm và ID.
@@ -316,7 +316,7 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
     :param target_depth: độ sâu tìm kiếm tối đa
     :param tt: Bảng băm (Transition Table)
     :param time_limit_seconds: Thời gian giới hạn
-    :return: nước đi tốt nhất (chess.Move) hoặc None nếu không có nước đi hợp lệ
+    :return: Tuple gồm (nước đi tốt nhất, độ sâu đã hoàn thành)
     """
     start_time = time.time()
 
@@ -333,7 +333,7 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
     legal_moves = list(board_.legal_moves)
     if not legal_moves:
         print("\nError: No legal moves at root.")
-        return None # Trả về None nếu không có nước đi
+        return None, 0 # Trả về None nếu không có nước đi
 
     # --- Vòng lặp Iterative Deepening ---
     for current_depth in range(1, target_depth + 1):
@@ -520,6 +520,7 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
     else:
         # Chỉ xảy ra nếu không có nước đi hợp lệ ban đầu hoặc lỗi rất lạ
         print("\nCritical Error: No best move found after search.")
-        if legal_moves: return legal_moves[0]  # Fallback
+        if legal_moves: 
+            return legal_moves[0], 0  # Trả về nước đầu tiên và độ sâu 0 nếu có lỗi
 
-    return best_move_completed_depth
+    return best_move_completed_depth, final_depth_completed  # Trả về tuple gồm nước đi và độ sâu

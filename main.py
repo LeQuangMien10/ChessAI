@@ -6,9 +6,17 @@ from fen_string_test import *
 from transposition_table import TranspositionTable
 from stockfish_test import StockfishEngine
 import chess.polyglot
+import time
 
 with open("elo.txt", "r") as file:
     ai_elo = float(file.readline().strip())
+
+# Bọc hàm main
+pygame.init()
+WINDOW_WIDTH = BOARD_SIZE + 200  # Thêm 200px bên phải
+screen = pygame.display.set_mode((WINDOW_WIDTH, BOARD_SIZE))
+pygame.display.set_caption("Chess")
+
 
 def handle_game_end(ai_color=None):
     global running, ai_elo
@@ -35,6 +43,7 @@ def update_screen():
     last_move = board.peek() if board.move_stack else None
     draw_board(screen, selected_square, legal_moves, last_move, board)
     draw_pieces(screen, board)
+    draw_info_panel(screen, move_history)
     pygame.display.flip()
 
 
@@ -43,35 +52,70 @@ def player_vs_ai():
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
-
+            
         elif event_.type == pygame.MOUSEBUTTONDOWN:
+            # Xử lý sự kiện cuộn chuột
+            if event_.button == 4:  # Cuộn lên
+                move_history.handle_scroll(True)
+                update_screen()
+            elif event_.button == 5:  # Cuộn xuống
+                move_history.handle_scroll(False)
+                update_screen()
+            
+            # Xử lý click chuột bình thường
             square = get_square_from_mouse(event_.pos)
 
-            if selected_square is None:
+            # Nếu click vào ô trống hoặc quân địch khi đã chọn một quân
+            if selected_square is not None:
                 piece_ = board.piece_at(square)
+                move = chess.Move(selected_square, square)
+                
+                # Nếu click vào quân của mình -> chọn quân mới
                 if piece_ and piece_.color == board.turn:
                     selected_square = square
                     legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
-            else:
-                move = chess.Move(selected_square, square)
-                promote_pawn(board, move, screen)
-                if move in board.legal_moves:
+                # Nếu là nước đi hợp lệ -> thực hiện nước đi
+                elif move in board.legal_moves:
+                    promote_pawn(board, move, screen)
+                    try:
+                        move_san = board.san(move)
+                        move_history.add_move(move_san, board.turn == chess.WHITE)
+                    except:
+                        move_san = move.uci()
+                    
                     board.push(move)
                     selected_square = None
                     legal_moves = []
                     update_screen()
 
                     if not board.is_game_over():
+                        start_time = time.time()
                         handle_ai_turn()
+                        end_time = time.time()
+                        
+                        if board.move_stack:
+                            last_move = board.peek()
+                            try:
+                                ai_move_san = board.san(last_move)
+                                move_history.add_move(ai_move_san, board.turn != chess.WHITE)
+                            except:
+                                ai_move_san = last_move.uci()
+                            
+                            move_history.update_stats(
+                                final_depth_completed,
+                                end_time - start_time
+                            )
                 else:
-                    # Nếu click vào ô không hợp lệ, cho phép chọn quân cờ khác
-                    piece_ = board.piece_at(square)
-                    if piece_ and piece_.color == board.turn:
-                        selected_square = square
-                        legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
-                    else:
-                        selected_square = None
-                        legal_moves = []
+                    # Nếu click vào ô không hợp lệ và không phải quân của mình -> bỏ chọn
+                    selected_square = None
+                    legal_moves = []
+            # Chưa chọn quân nào
+            else:
+                piece_ = board.piece_at(square)
+                if piece_ and piece_.color == board.turn:
+                    selected_square = square
+                    legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+
         if board.is_game_over():
             handle_game_end()
             break
@@ -124,12 +168,20 @@ def get_book_move(board):
         return None
 
 def handle_ai_turn(use_stockfish=False):
+    global final_depth_completed
+    
     # Ưu tiên book trong 12 nước đầu
     if board.fullmove_number <= 12:
         book_move = get_book_move(board)
         if book_move:
             print(f"📖 Opening book move: {book_move}")
+            try:
+                move_san = board.san(book_move)
+                move_history.add_move(move_san, board.turn == chess.WHITE)
+            except:
+                move_san = book_move.uci()
             board.push(book_move)
+            final_depth_completed = 0
             return
 
     # Chọn giữa Stockfish và AI của bạn
@@ -137,15 +189,37 @@ def handle_ai_turn(use_stockfish=False):
         best_move = stockfish_engine.get_best_move(board, time_limit=0.1)
         if best_move:
             print(f"🤖 Stockfish move: {board.san(best_move)}")
+            try:
+                move_san = board.san(best_move)
+                move_history.add_move(move_san, board.turn == chess.WHITE)
+            except:
+                move_san = best_move.uci()
             board.push(best_move)
+            final_depth_completed = 0
         else:
             print("⚠️ No valid move found by Stockfish.")
     else:
         # Nếu không có trong book → dùng AI hiện tại
-        best_move = get_best_move(board, target_depth=MAX_DEPTH, tt=tt)
+        start_time = time.time()
+        result = get_best_move(board, target_depth=MAX_DEPTH, tt=tt)
+        end_time = time.time()
+        
+        if isinstance(result, tuple):
+            best_move, depth = result
+            final_depth_completed = depth
+        else:
+            best_move = result
+            final_depth_completed = 0
+        
         if best_move:
             print(f"🧠 AI move: {board.san(best_move)}")
+            try:
+                move_san = board.san(best_move)
+                move_history.add_move(move_san, board.turn == chess.WHITE)
+            except:
+                move_san = best_move.uci()
             board.push(best_move)
+            move_history.update_stats(final_depth_completed, end_time - start_time)
         else:
             print("⚠️ No valid move found by AI.")
 
@@ -205,13 +279,9 @@ def player_vs_player():
             handle_game_end()
             break
 
-# Bọc hàm main
-pygame.init()
-screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
-pygame.display.set_caption("Chess")
 
 # Khởi tạo Stockfish engine
-stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
+stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # Thay bằng đường dẫn thực tế
 stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)  # Mức độ trung bình
 
 
@@ -225,12 +295,56 @@ game_history = []
 
 
 game_mode = get_game_mode(screen)
-board = chess.Board()  # Sửa thế ở đây
+board = chess.Board()
 tt = TranspositionTable(size_mb=128)
 selected_square = None
 legal_moves = []
 clock = pygame.time.Clock()
 running = True
+final_depth_completed = 0
+
+class MoveHistory:
+    def __init__(self):
+        self.moves = []  # List of tuples (white_move, black_move)
+        self.current_move = {'white': None, 'black': None}
+        self.last_depth = 0
+        self.last_time = 0
+        self.scroll_position = 0  # Vị trí cuộn, 0 là ở cuối (nước mới nhất)
+    
+    def add_move(self, move_san, is_white):
+        if is_white:
+            self.moves.append((move_san, None))
+        else:
+            if self.moves:
+                last_white, _ = self.moves[-1]
+                self.moves[-1] = (last_white, move_san)
+        self.scroll_position = 0  # Reset về cuối khi có nước đi mới
+    
+    def get_visible_moves(self):
+        start_idx = max(0, len(self.moves) - 10 - self.scroll_position)
+        end_idx = len(self.moves) - self.scroll_position
+        return self.moves[start_idx:end_idx]
+    
+    def get_move_number_start(self):
+        total_moves = len(self.moves)
+        visible_start = max(0, total_moves - 10 - self.scroll_position)
+        return visible_start + 1
+    
+    def handle_scroll(self, scroll_up):
+        if scroll_up:
+            # Cuộn lên (xem nước cũ hơn)
+            if self.scroll_position < len(self.moves) - 10:
+                self.scroll_position += 1
+        else:
+            # Cuộn xuống (xem nước mới hơn)
+            if self.scroll_position > 0:
+                self.scroll_position -= 1
+
+    def update_stats(self, depth, time):
+        self.last_depth = depth
+        self.last_time = time
+
+move_history = MoveHistory()
 
 def main():
     while running:

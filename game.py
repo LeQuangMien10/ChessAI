@@ -142,3 +142,91 @@ def choose_promotion_pygame(screen, colorTurn):
                 for btn_rect, piece_ in button_rects:
                     if btn_rect.collidepoint(event.pos):
                         return piece_
+
+
+def draw_info_panel(screen, move_history):
+    # Vẽ background đen cho panel bên phải
+    info_panel = pygame.Rect(BOARD_SIZE, 0, 200, BOARD_SIZE)
+    pygame.draw.rect(screen, (0, 0, 0), info_panel)
+    
+    # Font cho bảng
+    font = pygame.font.Font(None, 24)
+    
+    # Vẽ bảng nước đi
+    header_y = 20
+    headers = ["#", "White", "Black"]
+    col_widths = [30, 80, 80]
+    x_start = BOARD_SIZE + 10
+    
+    # Vẽ header
+    for i, header in enumerate(headers):
+        x = x_start + sum(col_widths[:i])
+        text = font.render(header, True, (255, 255, 255))
+        screen.blit(text, (x, header_y))
+    
+    # Vẽ đường kẻ ngang dưới header
+    pygame.draw.line(screen, (255, 255, 255),
+                    (x_start, header_y + 25),
+                    (x_start + sum(col_widths), header_y + 25))
+    
+    # Vẽ các nước đi
+    moves = move_history.get_visible_moves()
+    start_move_number = move_history.get_move_number_start()
+    row_height = 22
+    
+    # Vẽ vùng hiển thị nước đi với viền
+    moves_area = pygame.Rect(x_start - 5, header_y + 30,
+                           sum(col_widths) + 10, row_height * 10 + 5)
+    pygame.draw.rect(screen, (30, 30, 30), moves_area, 1)  # Vẽ viền
+    
+    for row, (white, black) in enumerate(moves):
+        y = header_y + 35 + row * row_height
+        move_num = start_move_number + row
+        
+        # Highlight nước mới nhất khi đang ở cuối
+        is_latest_move = (row == len(moves) - 1 and move_history.scroll_position == 0)
+        if is_latest_move:
+            highlight_rect = pygame.Rect(x_start - 5, y - 2,
+                                      sum(col_widths) + 10, row_height)
+            pygame.draw.rect(screen, (50, 50, 50), highlight_rect)
+        
+        # Số thứ tự
+        num_text = font.render(str(move_num), True, (255, 255, 255))
+        screen.blit(num_text, (x_start, y))
+        
+        # Nước trắng
+        if white:
+            white_text = font.render(white, True, (255, 255, 255))
+            screen.blit(white_text, (x_start + col_widths[0], y))
+        
+        # Nước đen
+        if black:
+            black_text = font.render(black, True, (255, 255, 255))
+            screen.blit(black_text, (x_start + col_widths[0] + col_widths[1], y))
+    
+    # Vẽ thanh cuộn
+    if len(move_history.moves) > 10:
+        scrollbar_x = x_start + sum(col_widths) + 15
+        scrollbar_height = row_height * 10
+        scrollbar_rect = pygame.Rect(scrollbar_x, header_y + 35, 5, scrollbar_height)
+        pygame.draw.rect(screen, (100, 100, 100), scrollbar_rect)
+        
+        # Vẽ nút cuộn
+        total_moves = len(move_history.moves)
+        visible_ratio = 10 / total_moves
+        thumb_height = max(20, scrollbar_height * visible_ratio)
+        thumb_pos = (scrollbar_height - thumb_height) * (move_history.scroll_position / (total_moves - 10))
+        thumb_rect = pygame.Rect(scrollbar_x, header_y + 35 + thumb_pos, 5, thumb_height)
+        pygame.draw.rect(screen, (200, 200, 200), thumb_rect)
+    
+    # Vẽ thông tin depth và time
+    info_y = header_y + 300
+    pygame.draw.line(screen, (255, 255, 255),
+                    (x_start, info_y - 10),
+                    (x_start + sum(col_widths), info_y - 10))
+    
+    depth_text = font.render(f"Depth: {move_history.last_depth}", True, (255, 255, 255))
+    time_text = font.render(f"Time: {move_history.last_time:.2f}s", True, (255, 255, 255))
+    
+    screen.blit(depth_text, (x_start, info_y))
+    screen.blit(time_text, (x_start, info_y + 30))
