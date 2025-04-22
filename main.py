@@ -310,8 +310,8 @@ def player_vs_player():
 
 
 # Khởi tạo Stockfish engine
-stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # Thay bằng đường dẫn thực tế
-# stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # cái này của Phước ae comment thôi đừng xoá.
+stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # cái này là đường dẫn của anh em
+# stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # cái này của Phước ae comment thôi đừng xoá !!!!!!!!!!!!!!!!!!!!!!!!!.
 stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)  # Mức độ trung bình
 
 
