@@ -13,52 +13,36 @@ def get_piece_value(piece_type: Optional[chess.PieceType]) -> int:
 
 def is_open_or_semi_open(board: chess.Board, file: int, color: chess.Color) -> bool:
     """Kiểm tra cột có mở hoặc bán mở (không có tốt phe mình)."""
-    for rank in range(8):
-        square = chess.square(file, rank)
-        piece = board.piece_at(square)
-        if piece and piece.piece_type == chess.PAWN and piece.color == color:
-            return False  # Có tốt phe mình -> không phải mở/bán mở
-    return True  # Không có tốt phe mình
+    pawns = board.pawns
+    file_mask = chess.BB_FILES[file]
+    friendly_pawns = board.pieces(chess.PAWN, color)
+    friendly_on_file = bool(friendly_pawns & file_mask)
+    return not friendly_on_file # True nếu không có Tốt mình
 
 
-def get_least_valuable_attacker(board: chess.Board, attackers_mask: chess.Bitboard, side_to_move: chess.Color) -> \
-Optional[chess.Square]:
-    """
-    Tìm ô của quân tấn công có giá trị thấp nhất trong tập attackers_mask.
-    Trả về None nếu không tìm thấy.
-    """
-    min_value = float('inf')
-    lva_square = None
+def get_least_valuable_attacker(board: chess.Board, attackers_mask: chess.Bitboard, side_to_move: chess.Color) -> Optional[chess.Square]:
+    """Tìm ô của quân tấn công có giá trị thấp nhất."""
+    attackers_mask_int = int(attackers_mask) # Chuyển mask đầu vào thành int một lần
 
-    # Duyệt qua các loại quân từ thấp đến cao (Tốt -> Hậu)
     for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]:
-        # Tìm các quân loại này của phe side_to_move trong tập attackers_mask
-        pieces_of_type: chess.Bitboard = board.pieces(piece_type, side_to_move) & attackers_mask
-        # Kiểm tra xem Bitboard có rỗng không
-        if pieces_of_type:  # Cách kiểm tra Bitboard rỗng trong python-chess
-            # Chọn ô có bit cao nhất (hoặc thấp nhất)
-            # *** SỬA Ở ĐÂY: Chuyển Bitboard thành int trước khi gọi msb/lsb ***
+        # Lấy bitboard của quân, cũng chuyển thành int
+        pieces_of_type_bb = board.pieces(piece_type, side_to_move)
+        pieces_of_type_int = int(pieces_of_type_bb)
+
+        # Thực hiện phép AND trên hai số nguyên
+        pieces_on_attack_squares_int = pieces_of_type_int & attackers_mask_int
+
+        # Kiểm tra kết quả (là số nguyên)
+        if pieces_on_attack_squares_int != 0:
             try:
-                # Ưu tiên dùng phương thức tích hợp sẵn của Bitboard nếu có (ít gây lỗi hơn)
-                # Tùy phiên bản python-chess, tên phương thức có thể khác nhau chút ít
-                # hoặc không tồn tại. Thử .msb() hoặc .lsb()
-                lva_square = pieces_of_type.msb()  # Thử .msb() trước
-            except AttributeError:
-                try:
-                    # Nếu .msb() không có, thử ép kiểu int rồi dùng chess.msb
-                    lva_square = chess.msb(int(pieces_of_type))
-                except Exception as e:
-                    # Xử lý lỗi nếu cả hai cách đều không hoạt động (nên log lỗi)
-                    print(f"Error finding msb/lsb for pieces_of_type: {pieces_of_type}, Error: {e}")
-                    return None  # Hoặc xử lý khác
-
-            # Nếu lva_square đã được tìm thấy thành công
-            if lva_square is not None:
-                min_value = get_piece_value(piece_type)
-                return lva_square  # Trả về ngay khi tìm thấy loại quân nhỏ nhất
-
-    return None  # Không tìm thấy quân tấn công nào hợp lệ trong mask
-
+                # chess.lsb hoạt động tốt với số nguyên
+                lva_square_index = chess.lsb(pieces_on_attack_squares_int)
+                return lva_square_index # Trả về int (chess.Square)
+            except Exception as e:
+                 # Vẫn nên giữ lại để bắt lỗi không mong muốn
+                 print(f"ERROR: chess.lsb failed on non-zero int {pieces_on_attack_squares_int}: {e}")
+                 return None
+    return None
 
 def static_exchange_evaluation(board: chess.Board, move: chess.Move) -> int:
     """
@@ -154,6 +138,7 @@ def static_exchange_evaluation(board: chess.Board, move: chess.Move) -> int:
 
 
 # --- Hàm sắp xếp chính ---
+MVV_LVA_MULTIPLIER = 100 # Hệ số nhân cho giá trị quân bị bắt
 
 def order_moves(
         board: chess.Board,
@@ -184,25 +169,30 @@ def order_moves(
     """
     move_scores: Dict[chess.Move, int] = {}
 
-    # Các mức điểm cơ bản để phân cấp
-    HASH_MOVE_SCORE = 100_000_000
-    PV_MOVE_SCORE = 99_000_000
-    WINNING_CAPTURE_BASE = 80_000_000  # SEE sẽ cộng vào đây
-    PROMOTION_QUEEN_SCORE = 75_000_000
-    KILLER_1_SCORE = 70_000_000
-    KILLER_2_SCORE = 69_000_000
-    PROMOTION_OTHER_BASE = 65_000_000  # Giá trị quân phong sẽ cộng vào
-    QUIET_MOVE_BASE = 0  # Điểm history và bonus sẽ cộng vào đây
-    LOSING_CAPTURE_BASE = -80_000_000  # SEE (âm) sẽ cộng vào đây
+    # Các mức điểm cơ bản
+    HASH_MOVE_SCORE = 200_000_000 # Tăng base score để MVV-LVA không vượt qua
+    PV_MOVE_SCORE = 190_000_000
+    # --- MVV-LVA sẽ xác định điểm cho bắt quân ---
+    # Base cho bắt quân sẽ thấp hơn, điểm MVV-LVA sẽ quyết định thứ tự
+    WINNING_CAPTURE_MVV_LVA_BASE = 100_000_000 # Base cho các nước bắt quân có MVV-LVA > 0
+    EQUAL_CAPTURE_MVV_LVA_BASE = 90_000_000   # Base cho các nước hòa vốn MVV-LVA (ví dụ PxP)
+    # --- Điểm SEE sẽ dùng để hạ cấp các nước bắt quân tệ ---
+    LOSING_CAPTURE_SEE_THRESHOLD = -50 # Ngưỡng SEE để coi là bắt quân tệ
+    LOSING_CAPTURE_SCORE_PENALTY = 50_000_000 # Phạt nặng nếu SEE âm
 
-    # Phạm vi điểm cho SEE và Heuristic yên lặng để tránh chồng lấn quá nhiều
-    MAX_SEE_SCORE_RANGE = 10_000_000  # Ví dụ: -5M -> +5M
-    MAX_QUIET_BONUS_RANGE = 5_000_000  # Ví dụ: history + bonus khác
+    PROMOTION_QUEEN_SCORE= 150_000_000
+    KILLER_1_SCORE       = 80_000_000
+    KILLER_2_SCORE       = 79_000_000
+    PROMOTION_OTHER_BASE = 140_000_000
+    QUIET_MOVE_BASE      = 0
+    # Losing captures (không có SEE check) sẽ có điểm rất thấp tự nhiên do MVV-LVA âm
+
+    MAX_QUIET_BONUS_RANGE = 5_000_000
 
     # Tính điểm cho từng nước đi
     for move in moves:
         score = 0
-        is_capture = board.is_capture(move)
+        is_capture = board.is_capture(move) or board.is_en_passant(move)
         is_promotion = move.promotion is not None
 
         # --- Ưu tiên 1: Hash / PV Move ---
@@ -213,19 +203,36 @@ def order_moves(
         else:
             # --- Ưu tiên 2 & 7: Bắt quân (Đánh giá bằng SEE) ---
             if is_capture:
-                see_score = static_exchange_evaluation(board, move)
+                captured_piece_type = None
+                if board.is_en_passant(move): captured_piece_type = chess.PAWN
+                else:
+                    captured_piece = board.piece_at(move.to_square)
+                    if captured_piece: captured_piece_type = captured_piece.piece_type
 
-                # Xử lý en passant nếu SEE không xử lý (ví dụ trả về 0)
-                if see_score == 0 and board.is_en_passant(move):
-                    see_score = get_piece_value(chess.PAWN)
+                attacker_piece_type = board.piece_type_at(move.from_square)
 
-                # Giới hạn điểm SEE để không ảnh hưởng quá lớn đến các bậc ưu tiên
-                capped_see = max(min(see_score, MAX_SEE_SCORE_RANGE // 2), -MAX_SEE_SCORE_RANGE // 2)
+                if captured_piece_type and attacker_piece_type:
+                    victim_value = get_piece_value(captured_piece_type)
+                    attacker_value = get_piece_value(attacker_piece_type)
+                    mvv_lva_score = (victim_value * MVV_LVA_MULTIPLIER) - attacker_value
 
-                if see_score >= 0:  # Bắt quân tốt / hòa vốn
-                    score = WINNING_CAPTURE_BASE + capped_see
-                else:  # Bắt quân lỗ
-                    score = LOSING_CAPTURE_BASE + capped_see  # capped_see là số âm
+                    # Gán điểm dựa trên MVV-LVA
+                    if mvv_lva_score >= 0:
+                        score = WINNING_CAPTURE_MVV_LVA_BASE + mvv_lva_score
+                    else: # MVV-LVA âm (ví dụ: QxB) -> điểm sẽ thấp hơn base
+                        score = WINNING_CAPTURE_MVV_LVA_BASE + mvv_lva_score # Vẫn dùng base này
+
+                    # --- Optional: Kiểm tra SEE để hạ cấp nước bắt quân tệ ---
+                    see_score = static_exchange_evaluation(board, move)
+                    if see_score < LOSING_CAPTURE_SEE_THRESHOLD:
+                        # Phạt nặng nếu SEE cho thấy lỗ nặng
+                        # Giữ nguyên thứ tự tương đối MVV-LVA nhưng giảm tổng điểm
+                        score -= LOSING_CAPTURE_SCORE_PENALTY
+                        # Hoặc có thể đặt một base riêng cho losing SEE captures
+                        # score = LOSING_CAPTURE_BASE + mvv_lva_score # Dùng base khác
+
+                else: # Không lấy được type -> lỗi hoặc nước đi lạ
+                    score = -float('inf') # Đẩy xuống cuối
 
             # --- Ưu tiên 3 & 5: Phong cấp (Không bắt quân) ---
             elif is_promotion:
@@ -250,36 +257,6 @@ def order_moves(
                     history_val = history.get((move.from_square, move.to_square), 0)
                     # Giới hạn điểm history
                     quiet_score += min(history_val, MAX_QUIET_BONUS_RANGE // 2)
-
-                # Tính các bonus từ hàm của bạn
-                piece = board.piece_at(move.from_square)
-                if piece:
-                    # Bonus chiếu (nếu có)
-                    try:  # board.gives_check có thể chậm, cân nhắc
-                        if board.gives_check(move):
-                            quiet_score += 400  # Giá trị ví dụ
-                    except AssertionError:  # Có thể xảy ra nếu nước đi không hợp lệ (ít khả năng nếu list đầu vào là legal_moves)
-                        pass
-
-                    # Bonus nhập thành
-                    if board.is_castling(move):
-                        quiet_score += 300  # Giá trị ví dụ
-
-                    # Bonus Xe cột mở/bán mở
-                    if piece.piece_type == chess.ROOK:
-                        to_file = chess.square_file(move.to_square)
-                        if is_open_or_semi_open(board, to_file, piece.color):
-                            quiet_score += 200  # Giá trị ví dụ
-
-                    # Bonus Tốt tiến gần phong cấp
-                    elif piece.piece_type == chess.PAWN:
-                        rank = chess.square_rank(move.to_square)
-                        color = board.turn
-                        if color == chess.WHITE and rank >= 5:  # Rank 6, 7, 8 (1-based index theo chess lib)
-                            quiet_score += (rank - 4) * 50  # Ví dụ
-                        elif color == chess.BLACK and rank <= 2:  # Rank 3, 2, 1
-                            quiet_score += (3 - rank) * 50  # Ví dụ
-
                 # Giới hạn tổng điểm yên lặng
                 score = min(quiet_score, MAX_QUIET_BONUS_RANGE)
 

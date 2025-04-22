@@ -374,7 +374,7 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
             # KIỂM TRA THỜI GIAN NGAY TỪ ĐẦU VÒNG LẶP
             if time_limit_seconds is not None:
                 elapsed_time = time.time() - start_time
-                if elapsed_time > time_limit_seconds:
+                if elapsed_time > time_limit_seconds * 0.7:
                     print(f"\nTime limit ({elapsed_time:.1f}s) reached BEFORE starting move {i+1} at depth {current_depth}. Returning best from depth {final_depth_completed}.")
                     search_interrupted = True # Đặt cờ ngắt
                     break # Thoát khỏi vòng lặp for move

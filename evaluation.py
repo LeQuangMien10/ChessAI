@@ -1,3 +1,5 @@
+from typing import Optional
+
 from evaluation_Pawn import evaluate_pawn_features
 from evaluation_Knight import evaluate_knight_features
 from evaluation_Rook import evaluate_rooks
@@ -5,9 +7,6 @@ from evaluation_Queen import evaluate_queens
 from evaluation_King import evaluate_king_features
 from collections import defaultdict
 from evaluation_Bishop import evaluate_bishop_specifics as evaluate_bishop_features
-
-import chess
-from time import perf_counter
 
 from config import *
 
@@ -79,68 +78,85 @@ def evaluate_position(board_):
 # material
 def material(board: chess.Board) -> tuple[int, int]:
     """
-    Hàm tính toán điểm midgame và endgame theo góc nhìn quân trắng
-    :param board: bàn cờ
-    :return: Tuples (mg_value, eg_value)
+    Hàm tính toán điểm material MG và EG theo góc nhìn quân trắng (Tối ưu hóa).
+    :param board: bàn cờ chess.Board
+    :return: Tuple (mg_value, eg_value)
     """
     mg_value = 0
     eg_value = 0
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece:
-            mg_val = PIECE_VALUES_MG[piece.piece_type]
-            eg_val = PIECE_VALUES_EG[piece.piece_type]
-            if piece.color == chess.WHITE:
-                mg_value += mg_val
-                eg_value += eg_val
-            else:
-                mg_value -= mg_val
-                eg_value -= eg_val
+    # Lặp qua từng màu
+    for color in [chess.WHITE, chess.BLACK]:
+        # Xác định hệ số nhân (1 cho Trắng, -1 cho Đen)
+        multiplier = 1 if color == chess.WHITE else -1
+        # Lặp qua từng loại quân có giá trị trong bảng MG (bao gồm cả Tốt)
+        for piece_type in PIECE_VALUES_MG:
+            # Bỏ qua Vua vì giá trị material là 0
+            if piece_type == chess.KING:
+                continue
+            # Lấy bitboard của các quân loại này
+            squares = board.pieces(piece_type, color)
+            # Đếm số lượng quân (rất nhanh từ bitboard)
+            count = len(squares)
+            # Cộng dồn điểm MG và EG
+            mg_value += count * PIECE_VALUES_MG[piece_type] * multiplier
+            eg_value += count * PIECE_VALUES_EG[piece_type] * multiplier
     return mg_value, eg_value
 
 
-# piece_square_tables
+# --- Helper function để lấy bảng PST ---
+def _get_pst_tables(piece_type: chess.PieceType) -> tuple[Optional[list], Optional[list]]:
+    """ Lấy bảng điểm vị trí MG và EG cho loại quân. """
+    if piece_type == chess.PAWN:
+        return PAWN_POSITION_BONUS_MG, PAWN_POSITION_BONUS_EG
+    elif piece_type == chess.KNIGHT:
+        return KNIGHT_POSITION_BONUS_MG, KNIGHT_POSITION_BONUS_EG
+    elif piece_type == chess.BISHOP:
+        return BISHOP_POSITION_BONUS_MG, BISHOP_POSITION_BONUS_EG
+    elif piece_type == chess.ROOK:
+        return ROOK_POSITION_BONUS_MG, ROOK_POSITION_BONUS_EG
+    elif piece_type == chess.QUEEN:
+        return QUEEN_POSITION_BONUS_MG, QUEEN_POSITION_BONUS_EG
+    elif piece_type == chess.KING:
+        return KING_POSITION_BONUS_MG, KING_POSITION_BONUS_EG
+    else:
+        return None, None # Không có PST cho loại quân không xác định
+
+# --- Hàm piece_square_tables (Đã tối ưu) ---
 def piece_square_tables(board: chess.Board) -> tuple[int, int]:
-    """ Trả về (pst_mg, pst_eg) theo góc nhìn Trắng. """
+    """
+    Trả về (pst_mg, pst_eg) theo góc nhìn Trắng (Tối ưu hóa).
+    """
     mg_eval = 0
     eg_eval = 0
+    # Lặp qua các màu
+    for color in [chess.WHITE, chess.BLACK]:
+        multiplier = 1 if color == chess.WHITE else -1
+        # Lặp qua tất cả các loại quân (bao gồm cả Vua)
+        for piece_type in chess.PIECE_TYPES: # chess.PIECE_TYPES = [PAWN, KNIGHT, ..., KING]
+            # Lấy bảng PST cho loại quân này
+            pst_mg, pst_eg = _get_pst_tables(piece_type)
 
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece:
-            # Lấy đúng bảng PST cho MG và EG
-            pst_mg = None
-            pst_eg = None
-            piece_type = piece.piece_type
-
-            if piece_type == chess.PAWN:
-                pst_mg, pst_eg = PAWN_POSITION_BONUS_MG, PAWN_POSITION_BONUS_EG
-            elif piece_type == chess.KNIGHT:
-                pst_mg, pst_eg = KNIGHT_POSITION_BONUS_MG, KNIGHT_POSITION_BONUS_EG
-            elif piece_type == chess.BISHOP:
-                pst_mg, pst_eg = BISHOP_POSITION_BONUS_MG, BISHOP_POSITION_BONUS_EG
-            elif piece_type == chess.ROOK:
-                pst_mg, pst_eg = ROOK_POSITION_BONUS_MG, ROOK_POSITION_BONUS_EG
-            elif piece_type == chess.QUEEN:
-                pst_mg, pst_eg = QUEEN_POSITION_BONUS_MG, QUEEN_POSITION_BONUS_EG
-            elif piece_type == chess.KING:
-                pst_mg, pst_eg = KING_POSITION_BONUS_MG, KING_POSITION_BONUS_EG
-
+            # Nếu có bảng PST được định nghĩa
             if pst_mg is not None and pst_eg is not None:
-                # Tính index dựa trên màu quân
-                index = square if piece.color == chess.WHITE else chess.square_mirror(square)
-                row, col = divmod(index, 8)  # Hoặc dùng 7 - index // 8, index % 8 như cũ
-                row_idx = 7 - row  # Vì bảng thường định nghĩa từ rank 8 xuống 1
+                # Lấy bitboard chứa các ô của quân loại này, màu này
+                squares_bitboard = board.pieces(piece_type, color)
+                # Chỉ lặp qua các ô có quân đó
+                for square in squares_bitboard:
+                    # Tính index cho PST (xử lý lật bảng cho quân Đen)
+                    pst_index = square if color == chess.WHITE else chess.square_mirror(square)
+                    # Chuyển index 0-63 thành tọa độ hàng/cột 0-7
+                    # Hàng 0 là rank 1, hàng 7 là rank 8
+                    rank_idx = pst_index // 8
+                    file_idx = pst_index % 8
 
-                bonus_mg = pst_mg[row_idx][col]
-                bonus_eg = pst_eg[row_idx][col]
+                    # Lấy điểm bonus từ bảng (Lưu ý: PST thường định nghĩa từ rank 8 xuống 1)
+                    # Nên index hàng cần là 7 - rank_idx
+                    bonus_mg = pst_mg[7 - rank_idx][file_idx]
+                    bonus_eg = pst_eg[7 - rank_idx][file_idx]
 
-                if piece.color == chess.WHITE:
-                    mg_eval += bonus_mg
-                    eg_eval += bonus_eg
-                else:
-                    mg_eval -= bonus_mg
-                    eg_eval -= bonus_eg
+                    # Cộng dồn điểm
+                    mg_eval += bonus_mg * multiplier
+                    eg_eval += bonus_eg * multiplier
 
     return mg_eval, eg_eval
 
@@ -159,66 +175,64 @@ def interpolate(mg_score, eg_score, phase):
     return ((mg_score * phase) + (eg_score * (256 - phase))) // 256
 
 
-# --- Hàm King Safety Tapered ---
-def _get_surrounding_squares(square):
-    """ Lấy các ô xung quanh (vua) """
-    surrounding = []
-    rank = chess.square_rank(square)
-    file = chess.square_file(square)
+# --- Hàm King Safety Tapered (Tối ưu hóa) ---
+KING_ZONE_MASKS = [0] * 64 # Precompute king zone masks if needed, or generate dynamically
+for sq in chess.SQUARES:
+    mask = 0
+    rank = chess.square_rank(sq)
+    file = chess.square_file(sq)
     for r_offset in [-1, 0, 1]:
         for f_offset in [-1, 0, 1]:
-            if r_offset == 0 and f_offset == 0: continue
+            # if r_offset == 0 and f_offset == 0: continue # Include king's square? Optional
             new_r, new_f = rank + r_offset, file + f_offset
             if 0 <= new_r <= 7 and 0 <= new_f <= 7:
-                surrounding.append(chess.square(new_f, new_r))
-    return surrounding
+                mask |= chess.BB_SQUARES[chess.square(new_f, new_r)]
+    KING_ZONE_MASKS[sq] = mask
 
 def _evaluate_king_safety_for_color(board: chess.Board, color: chess.Color) -> tuple[int, int]:
-    """ Tính điểm an toàn MG và EG cho một màu vua """
+    """ Tính điểm an toàn MG và EG cho một màu vua (Tối ưu hóa). """
     mg_safety = 0
     eg_safety = 0
     king_square = board.king(color)
-    if king_square is None:
-        return (-CHECKMATE_SCORE, -CHECKMATE_SCORE) # Vua đã bị bắt? (rất tệ)
+    if king_square is None: return -CHECKMATE_SCORE, -CHECKMATE_SCORE
 
     opponent = not color
-    surrounding_squares = _get_surrounding_squares(king_square)
 
-    # 1. Phạt bị tấn công gần Vua
-    attack_penalty_mg = 0
-    attack_penalty_eg = 0
-    for sq in surrounding_squares:
-        attackers = board.attackers(opponent, sq)
-        if attackers:
-            attack_penalty_mg += len(attackers) * KING_ATTACKED_SQUARE_PENALTY_MG
-            attack_penalty_eg += len(attackers) * KING_ATTACKED_SQUARE_PENALTY_EG
-    mg_safety -= attack_penalty_mg
-    eg_safety -= attack_penalty_eg
+    # 1. Phạt bị tấn công gần Vua (Dùng bitboard)
+    king_zone_mask = KING_ZONE_MASKS[king_square] # Lấy mask vùng quanh vua
+    total_attackers_count = 0
+    opponent_attack_mask = 0
 
-    # 2. Thưởng Tốt che chắn (chỉ MG)
+    # Tính tổng mask tấn công của các quân đối phương
+    for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]: # Bỏ qua King đối phương?
+         for attacker_sq in board.pieces(piece_type, opponent):
+              opponent_attack_mask |= board.attacks_mask(attacker_sq)
+
+    # Đếm số ô trong vùng vua bị tấn công
+    attacked_king_zone_squares = bin(opponent_attack_mask & king_zone_mask).count('1')
+
+    mg_safety -= attacked_king_zone_squares * KING_ATTACKED_SQUARE_PENALTY_MG
+    eg_safety -= attacked_king_zone_squares * KING_ATTACKED_SQUARE_PENALTY_EG
+
+    # 2. Thưởng Tốt che chắn (chỉ MG) - Giữ nguyên logic đơn giản (khá nhanh)
     pawn_shield_bonus = 0
     king_rank = chess.square_rank(king_square)
     king_file = chess.square_file(king_square)
-    # Chỉ xét các ô ngay phía trước Vua (thường là quan trọng nhất)
-    shield_ranks = [king_rank + 1] if color == chess.WHITE else [king_rank - 1]
-    if 0 <= shield_ranks[0] <= 7:
+    shield_rank = king_rank + 1 if color == chess.WHITE else king_rank - 1
+    if 0 <= shield_rank <= 7:
+        friendly_pawns = board.pieces(chess.PAWN, color)
         for f_offset in [-1, 0, 1]:
             shield_f = king_file + f_offset
             if 0 <= shield_f <= 7:
-                shield_sq = chess.square(shield_f, shield_ranks[0])
-                piece = board.piece_at(shield_sq)
-                if piece and piece.piece_type == chess.PAWN and piece.color == color:
+                shield_sq_mask = chess.BB_SQUARES[chess.square(shield_f, shield_rank)]
+                if bool(shield_sq_mask & int(friendly_pawns)): # Kiểm tra nhanh bằng bitboard
                     pawn_shield_bonus += PAWN_SHIELD_BONUS_MG
     mg_safety += pawn_shield_bonus
-    # eg_safety += PAWN_SHIELD_BONUS_EG # Thường là 0
+    # eg_safety += PAWN_SHIELD_BONUS_EG # = 0
 
     # 3. Bonus quyền nhập thành (chỉ MG)
     if board.has_castling_rights(color):
-         # Kiểm tra xem đã nhập thành chưa, nếu chưa mới cộng bonus quyền
-          mg_safety += CASTLING_RIGHTS_BONUS
-              # Hoặc có thể cộng bonus lớn hơn nếu ĐÃ nhập thành? Tùy logic
-
-    # King PST đã được tính trong piece_square_tables, không cần tính lại ở đây
+         mg_safety += CASTLING_RIGHTS_BONUS
 
     return mg_safety, eg_safety
 
@@ -226,130 +240,103 @@ def king_safety_tapered(board: chess.Board) -> tuple[int, int]:
     """ Tính chênh lệch điểm an toàn vua (Trắng - Đen) cho MG và EG """
     white_mg, white_eg = _evaluate_king_safety_for_color(board, chess.WHITE)
     black_mg, black_eg = _evaluate_king_safety_for_color(board, chess.BLACK)
-    return (white_mg - black_mg, white_eg - black_eg)
+    return white_mg - black_mg, white_eg - black_eg
 
 # --- Hàm Passed Pawns Tapered ---
-def is_passed(board: chess.Board, square: chess.Square, color: chess.Color) -> bool:
-    """ Kiểm tra xem Tốt ở ô square có phải là Tốt thông không """
+# Precompute masks for pawn attack spans (optional, can improve performance further)
+# WHITE_PAWN_FRONT_SPANS = {sq: calculate_span(...) for sq in chess.SQUARES}
+# BLACK_PAWN_FRONT_SPANS = {sq: calculate_span(...) for sq in chess.SQUARES}
+
+def _calculate_pawn_attack_span(square: chess.Square, color: chess.Color) -> int:
+    """ Tính bitmask các ô phía trước trên 3 cột liên quan """
+    mask = 0
     file = chess.square_file(square)
     rank = chess.square_rank(square)
-    opponent = not color
     direction = 1 if color == chess.WHITE else -1
+    files_to_check = range(max(0, file - 1), min(8, file + 2))
+    current_rank = rank + direction
+    while 0 <= current_rank <= 7:
+        for check_file in files_to_check:
+            mask |= chess.BB_SQUARES[chess.square(check_file, current_rank)]
+        current_rank += direction
+    return mask
 
-    # Kiểm tra các cột trước mặt (cột hiện tại và 2 cột liền kề)
-    for check_file in range(max(0, file - 1), min(8, file + 2)):
-        # Kiểm tra các ô từ hàng tiếp theo đến hàng cuối
-        current_rank = rank + direction
-        while 0 <= current_rank <= 7:
-            check_square = chess.square(check_file, current_rank)
-            piece = board.piece_at(check_square)
-            if piece and piece.piece_type == chess.PAWN and piece.color == opponent:
-                return False # Có Tốt đối phương chặn
-            current_rank += direction
-    return True # Không có Tốt đối phương chặn
+def is_passed_optimized(board: chess.Board, square: chess.Square, color: chess.Color) -> bool:
+    """ Kiểm tra Tốt thông bằng Bitboard (Hiệu quả hơn). """
+    opponent = not color
+    opponent_pawns_mask = board.pieces(chess.PAWN, opponent)
+    # Tính hoặc lấy attack span mask đã tính trước
+    attack_span_mask = _calculate_pawn_attack_span(square, color)
+    return not bool(opponent_pawns_mask & attack_span_mask)
 
 def passed_pawns_tapered(board: chess.Board) -> tuple[int, int]:
-    """ Tính điểm bonus Tốt thông cho MG và EG (góc nhìn Trắng) """
+    """ Tính điểm bonus Tốt thông cho MG và EG (Tối ưu hóa) """
     mg_bonus_total = 0
     eg_bonus_total = 0
-    white_pawns = board.pieces(chess.PAWN, chess.WHITE)
-    black_pawns = board.pieces(chess.PAWN, chess.BLACK)
-
-    for sq in white_pawns:
-        if is_passed(board, sq, chess.WHITE):
-            rank = chess.square_rank(sq) # rank 0-7
-            mg_bonus = PASSED_PAWN_BONUS_MG[rank]
-            eg_bonus = PASSED_PAWN_BONUS_EG[rank]
-            mg_bonus_total += mg_bonus
-            eg_bonus_total += eg_bonus
-            # Optional: Thêm bonus nếu được Vua bảo vệ/gần Vua ở EG
-
-    for sq in black_pawns:
-        if is_passed(board, sq, chess.BLACK):
-            rank = chess.square_rank(sq)
-            # Lấy bonus từ bảng nhưng đảo ngược index rank cho Đen
-            # Rank 0 của đen là index 7, rank 1 là index 6,... rank 7 là index 0
-            mirrored_rank_index = 7 - rank
-            mg_bonus = PASSED_PAWN_BONUS_MG[mirrored_rank_index]
-            eg_bonus = PASSED_PAWN_BONUS_EG[mirrored_rank_index]
-            mg_bonus_total -= mg_bonus # Trừ điểm của Đen
-            eg_bonus_total -= eg_bonus
-            # Optional: Thêm bonus nếu được Vua bảo vệ/gần Vua ở EG
-
+    # Lặp qua màu
+    for color in [chess.WHITE, chess.BLACK]:
+        multiplier = 1 if color == chess.WHITE else -1
+        pawns_bb = board.pieces(chess.PAWN, color)
+        for sq in pawns_bb:
+            # Dùng hàm is_passed đã tối ưu
+            if is_passed_optimized(board, sq, color):
+                rank = chess.square_rank(sq)
+                mirrored_rank_index = rank if color == chess.WHITE else 7 - rank
+                # Kiểm tra index hợp lệ trước khi truy cập
+                if 0 <= mirrored_rank_index < len(PASSED_PAWN_BONUS_MG):
+                    mg_bonus = PASSED_PAWN_BONUS_MG[mirrored_rank_index]
+                    eg_bonus = PASSED_PAWN_BONUS_EG[mirrored_rank_index]
+                    mg_bonus_total += mg_bonus * multiplier
+                    eg_bonus_total += eg_bonus * multiplier
     return mg_bonus_total, eg_bonus_total
 
 # --- Hàm Rooks on Files Tapered ---
-def _is_file_open(board: chess.Board, file: int) -> bool:
-    """ Kiểm tra cột có hoàn toàn không có Tốt nào không """
-    for rank in range(8):
-        piece = board.piece_at(chess.square(file, rank))
-        if piece and piece.piece_type == chess.PAWN:
-            return False
-    return True
-
-def _is_file_semi_open(board: chess.Board, file: int, color: chess.Color) -> bool:
-    """ Kiểm tra cột có bán mở (không có Tốt phe mình) không """
-    has_friendly_pawn = False
-    has_enemy_pawn = False
-    opponent = not color
-    for rank in range(8):
-        piece = board.piece_at(chess.square(file, rank))
-        if piece and piece.piece_type == chess.PAWN:
-            if piece.color == color:
-                has_friendly_pawn = True
-                break # Chỉ cần 1 Tốt phe mình là đủ kết luận không bán mở
-            else:
-                has_enemy_pawn = True
-    # Bán mở nếu không có Tốt mình VÀ có Tốt địch (hoặc không có Tốt nào -> open)
-    # Định nghĩa phổ biến hơn: bán mở là không có Tốt mình
-    return not has_friendly_pawn
-
 def rook_files_tapered(board: chess.Board) -> tuple[int, int]:
-    """ Tính điểm bonus cho Xe trên cột mở/bán mở (góc nhìn Trắng) """
+    """ Tính điểm bonus cho Xe trên cột mở/bán mở (Tối ưu hóa) """
     mg_bonus_total = 0
     eg_bonus_total = 0
-    white_rooks = board.pieces(chess.ROOK, chess.WHITE)
-    black_rooks = board.pieces(chess.ROOK, chess.BLACK)
+    pawns = board.pawns # Lấy bitboard tất cả Tốt một lần
 
-    for sq in white_rooks:
-        file = chess.square_file(sq)
-        rank = chess.square_rank(sq)
-        is_open = _is_file_open(board, file)
-        is_semi_open = _is_file_semi_open(board, file, chess.WHITE)
+    for color in [chess.WHITE, chess.BLACK]:
+        multiplier = 1 if color == chess.WHITE else -1
+        rooks_bb = board.pieces(chess.ROOK, color)
+        friendly_pawns = board.pieces(chess.PAWN, color)
+        seventh_rank_mask = chess.BB_RANK_7 if color == chess.WHITE else chess.BB_RANK_2
 
-        if is_open:
-            mg_bonus_total += ROOK_OPEN_FILE_BONUS_MG
-            eg_bonus_total += ROOK_OPEN_FILE_BONUS_EG
-        elif is_semi_open:
-            mg_bonus_total += ROOK_SEMI_OPEN_FILE_BONUS_MG
-            eg_bonus_total += ROOK_SEMI_OPEN_FILE_BONUS_EG
+        for sq in rooks_bb:
+            file = chess.square_file(sq)
+            file_mask = chess.BB_FILES[file]
 
-        # Bonus nếu ở hàng 7 (đối với Trắng)
-        if rank == 6: # Rank index 6 là hàng 7
-            mg_bonus_total += ROOK_ON_7TH_BONUS_MG
-            eg_bonus_total += ROOK_ON_7TH_BONUS_EG
+            pawns_on_file = bool(pawns & file_mask)
+            friendly_pawns_on_file = bool(friendly_pawns & file_mask)
 
-    for sq in black_rooks:
-        file = chess.square_file(sq)
-        rank = chess.square_rank(sq)
-        is_open = _is_file_open(board, file)
-        is_semi_open = _is_file_semi_open(board, file, chess.BLACK)
+            is_open = not pawns_on_file
+            is_semi_open = not friendly_pawns_on_file # Bán mở cho phe ta
 
-        if is_open:
-            mg_bonus_total -= ROOK_OPEN_FILE_BONUS_MG
-            eg_bonus_total -= ROOK_OPEN_FILE_BONUS_EG
-        elif is_semi_open:
-            mg_bonus_total -= ROOK_SEMI_OPEN_FILE_BONUS_MG
-            eg_bonus_total -= ROOK_SEMI_OPEN_FILE_BONUS_EG
+            bonus_mg = 0
+            bonus_eg = 0
 
-        # Bonus nếu ở hàng 2 (đối với Đen - rank index 1)
-        if rank == 1: # Rank index 1 là hàng 2
-            mg_bonus_total -= ROOK_ON_7TH_BONUS_MG # Trừ điểm
-            eg_bonus_total -= ROOK_ON_7TH_BONUS_EG
+            if is_open:
+                bonus_mg += ROOK_OPEN_FILE_BONUS_MG
+                bonus_eg += ROOK_OPEN_FILE_BONUS_EG
+            elif is_semi_open:
+                bonus_mg += ROOK_SEMI_OPEN_FILE_BONUS_MG
+                bonus_eg += ROOK_SEMI_OPEN_FILE_BONUS_EG
+
+            # Bonus nếu ở hàng 7/2
+            if bool(chess.BB_SQUARES[sq] & seventh_rank_mask):
+                bonus_mg += ROOK_ON_7TH_BONUS_MG
+                bonus_eg += ROOK_ON_7TH_BONUS_EG
+
+            mg_bonus_total += bonus_mg * multiplier
+            eg_bonus_total += bonus_eg * multiplier
 
     return mg_bonus_total, eg_bonus_total
 
 
+
+
+# --------- UNUSED -------------- #
 # Evaluation of Pieces
 def evaluate_pieces(board_: chess.Board) -> float:
     """
