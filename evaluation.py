@@ -197,22 +197,19 @@ def _evaluate_king_safety_for_color(board: chess.Board, color: chess.Color) -> t
     if king_square is None: return -CHECKMATE_SCORE, -CHECKMATE_SCORE
 
     opponent = not color
+    king_zone_mask = KING_ZONE_MASKS[king_square]
 
     # 1. Phạt bị tấn công gần Vua (Dùng bitboard)
-    king_zone_mask = KING_ZONE_MASKS[king_square] # Lấy mask vùng quanh vua
-    total_attackers_count = 0
-    opponent_attack_mask = 0
+    opponent_attacks = 0
+    for piece_type in chess.PIECE_TYPES: # Lặp qua TẤT CẢ các loại quân địch
+        if piece_type == chess.KING: continue # Thường không tính Vua địch tấn công vùng Vua mình
+        for sq in board.pieces(piece_type, opponent):
+            opponent_attacks |= board.attacks_mask(sq)
 
-    # Tính tổng mask tấn công của các quân đối phương
-    for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]: # Bỏ qua King đối phương?
-         for attacker_sq in board.pieces(piece_type, opponent):
-              opponent_attack_mask |= board.attacks_mask(attacker_sq)
+    attacked_king_zone_squares_count = bin(int(opponent_attacks & king_zone_mask)).count('1')
 
-    # Đếm số ô trong vùng vua bị tấn công
-    attacked_king_zone_squares = bin(opponent_attack_mask & king_zone_mask).count('1')
-
-    mg_safety -= attacked_king_zone_squares * KING_ATTACKED_SQUARE_PENALTY_MG
-    eg_safety -= attacked_king_zone_squares * KING_ATTACKED_SQUARE_PENALTY_EG
+    mg_safety -= attacked_king_zone_squares_count * KING_ATTACKED_SQUARE_PENALTY_MG
+    eg_safety -= attacked_king_zone_squares_count * KING_ATTACKED_SQUARE_PENALTY_EG
 
     # 2. Thưởng Tốt che chắn (chỉ MG) - Giữ nguyên logic đơn giản (khá nhanh)
     pawn_shield_bonus = 0
@@ -242,13 +239,11 @@ def king_safety_tapered(board: chess.Board) -> tuple[int, int]:
     black_mg, black_eg = _evaluate_king_safety_for_color(board, chess.BLACK)
     return white_mg - black_mg, white_eg - black_eg
 
-# --- Hàm Passed Pawns Tapered ---
-# Precompute masks for pawn attack spans (optional, can improve performance further)
-# WHITE_PAWN_FRONT_SPANS = {sq: calculate_span(...) for sq in chess.SQUARES}
-# BLACK_PAWN_FRONT_SPANS = {sq: calculate_span(...) for sq in chess.SQUARES}
+# --- Precomputation for Pawn Attack Spans ---
+WHITE_PAWN_FRONT_SPANS = [0] * 64
+BLACK_PAWN_FRONT_SPANS = [0] * 64
 
-def _calculate_pawn_attack_span(square: chess.Square, color: chess.Color) -> int:
-    """ Tính bitmask các ô phía trước trên 3 cột liên quan """
+def _compute_span(square, color):
     mask = 0
     file = chess.square_file(square)
     rank = chess.square_rank(square)
@@ -261,12 +256,22 @@ def _calculate_pawn_attack_span(square: chess.Square, color: chess.Color) -> int
         current_rank += direction
     return mask
 
+def precompute_pawn_spans():
+    print("Precomputing pawn attack spans...") # Debug print
+    for sq in chess.SQUARES:
+        WHITE_PAWN_FRONT_SPANS[sq] = _compute_span(sq, chess.WHITE)
+        BLACK_PAWN_FRONT_SPANS[sq] = _compute_span(sq, chess.BLACK)
+    print("Pawn attack spans precomputed.")
+
+# Gọi hàm precomputation một lần khi module được import
+precompute_pawn_spans()
+
 def is_passed_optimized(board: chess.Board, square: chess.Square, color: chess.Color) -> bool:
     """ Kiểm tra Tốt thông bằng Bitboard (Hiệu quả hơn). """
     opponent = not color
     opponent_pawns_mask = board.pieces(chess.PAWN, opponent)
     # Tính hoặc lấy attack span mask đã tính trước
-    attack_span_mask = _calculate_pawn_attack_span(square, color)
+    attack_span_mask = WHITE_PAWN_FRONT_SPANS[square] if color == chess.WHITE else BLACK_PAWN_FRONT_SPANS[square]
     return not bool(opponent_pawns_mask & attack_span_mask)
 
 def passed_pawns_tapered(board: chess.Board) -> tuple[int, int]:
