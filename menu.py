@@ -1,6 +1,7 @@
 import pygame
 import sys
 from config import *  # Import tất cả từ config, bao gồm WINDOW_WIDTH và BOARD_SIZE
+from sounds import sound_manager
 
 pygame.mixer.init()
 
@@ -67,18 +68,6 @@ class Button:
                 return True
         return False
 
-def play_lobby_music():
-    try:
-        pygame.mixer.music.play(-1)
-    except:
-        print("Warning: Could not play lobby music")
-
-def stop_lobby_music():
-    try:
-        pygame.mixer.music.stop()
-    except:
-        print("Warning: Could not stop lobby music")
-
 def draw_animated_background(screen, time):
     # Vẽ background
     screen.blit(BACKGROUND, (0, 0))
@@ -90,8 +79,8 @@ def draw_animated_background(screen, time):
     screen.blit(overlay, (0, 0))
 
 def get_game_mode(screen):
+    sound_manager.play_lobby_music()
     clock = pygame.time.Clock()
-    play_lobby_music()
     
     # Thu nhỏ kích thước button và điều chỉnh khoảng cách
     button_width = 250  # Chiều rộng button
@@ -136,7 +125,7 @@ def get_game_mode(screen):
                 
             for i, button in enumerate(buttons):
                 if button.handle_event(event):
-                    stop_lobby_music()
+                    sound_manager.stop_lobby_music()
                     return [TWO_PLAYERS, PLAYER_VS_AI, AI_VS_PLAYER, TWO_AIS][i]
 
         # Vẽ background
