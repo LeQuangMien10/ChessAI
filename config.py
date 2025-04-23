@@ -25,7 +25,7 @@ AI_VS_PLAYER = 3
 MAX_DEPTH = 7
 TIME_LIMIT = 10
 STOCKFISH_LEVEL = 4
-USING_STOCKFISH = False
+STOCKFISH_WHITE = True
 # True: Stockfish (Trắng), AI (Đen)
 # False: Stockfish (Đen), AI (Trắng)
 ELO_PER_SKILL_LEVEL = {

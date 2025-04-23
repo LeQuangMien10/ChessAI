@@ -276,7 +276,7 @@ def handle_ai_turn(use_stockfish=False):
 
 
 def ai_vs_ai():
-    use_stockfish = USING_STOCKFISH
+    use_stockfish = STOCKFISH_WHITE
     global running
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
