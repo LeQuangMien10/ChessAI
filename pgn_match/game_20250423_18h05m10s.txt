@@ -1,7 +1,0 @@
-[Event "TWO_AIS"]
-[Date "20250423_18h05m10s"]
-[White "Stockfish"]
-[Black "My AI"]
-[Result "1-0"]
-
-1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. f4 e6 7. Be3 b5 8. Qf3 Bb7 9. Bd3 Nbd7 10. O-O Be7 11. Rae1 Nc5 12. a3 O-O 13. Qh3 Nfxe4 14. Nxe4 Bxe4 15. Bxe4 Nxe4 16. Nxe6 fxe6 17. Qxe6+ Rf7 18. Qxe4 Bh4 19. Bf2 Rc8 20. c3 Bxf2+ 21. Rxf2 Qh4 22. g3 Qh5 23. Qe6 Qc5 24. Re4 Rd8 25. Rd4 Qc6 26. Re2 Qc7 27. Qd5 Kh8 28. Kg2 Rf6 29. h3 Qd7 30. Re3 Rdf8 31. Ree4 Rh6 32. g4 Rc8 33. Re3 a5 34. Kg3 a4 35. Qe4 Rg8 36. Re1 Rd8 37. Qe7 Qxe7 38. Rxe7 Kg8 39. Rb4 Kf8 40. Re1 Rb8 41. g5 Rh5 42. c4 h6 43. Kg4 g6 44. cxb5 hxg5 45. fxg5 Rb6 46. Re6 Kg7 47. h4 Rh8 48. Rxa4 Rc8 49. Ra7+ Kf8 50. Rxg6 Rxb5 51. Rxd6 Rxb2 52. Rd3 Rc4+ 53. Kh5 Ke8 54. Ra8+ Kf7 55. Rf3+ Ke6 56. Rf6+ Ke5 57. Ra5+ Kd4 58. g6 Kc3 59. Raf5 Rh2 60. Rf3+ Kb2 61. Rf2+ Rxf2 62. Rxf2+ Kxa3 63. Rf8 Rc5+ 64. Kg4 Rc4+ 65. Rf4 Rc2 66. h5 Rg2+ 67. Kf5 Ka2 68. Re4 Kb1 69. h6 Kc2 70. Ra4 Rf2+ 71. Rf4 Rd2 72. Rg4 Rd5+ 73. Ke4 Rd8 74. Kf5 Rd5+ 75. Kf6 Rd6+ 76. Ke5 Rd2 77. Ke4 Re2+ 78. Kf5 Rf2+ 79. Kg5 Rf8 80. h7 Rh8 81. g7 Rxh7 82. g8=Q Rc7 83. Rg2+ Kc1 84. Qf8 Rc2 85. Qa3+ Kd1 86. Qa4 Ke1 87. Qe4+ Kf1 88. Qf3+ Ke1 89. Rg1+ Kd2 90. Rd1# 

@@ -276,9 +276,7 @@ def handle_ai_turn(use_stockfish=False):
 
 
 def ai_vs_ai():
-    # True: Stockfish (Trắng), AI (Đen)
-    # False: Stockfish (Đen), AI (Trắng)
-    use_stockfish = True
+    use_stockfish = USING_STOCKFISH
     global running
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
@@ -342,13 +340,7 @@ def player_vs_player():
 # Khởi tạo Stockfish engine
 stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # cái này là đường dẫn của anh em
 # stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # cái này của Phước ae comment thôi đừng xoá !!!!!!!!!!!!!!!!!!!!!!!!!.
-stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)  # Mức độ trung bình
-
-
-ELO_PER_SKILL_LEVEL = {
-    0: 1100, 1: 1250, 2: 1400, 3: 1550, 4: 1700, 5: 1850, 6: 2000, 7: 2150, 8: 2300, 9: 2450,
-    10: 2600, 11: 2725, 12: 2850, 13: 2975, 14: 3100, 15: 3200, 16: 3300, 17: 3400, 18: 2475, 19: 3550, 20: 3600
-}
+stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)
 
 stockfish_elo = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
 game_history = []
