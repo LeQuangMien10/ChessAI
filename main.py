@@ -22,6 +22,7 @@ pygame.display.set_caption("Chess")
 # Khởi tạo mixer cho âm thanh
 pygame.mixer.init()
 
+
 def handle_game_end(ai_color=None):
     global running, ai_elo
     update_screen()
@@ -38,33 +39,35 @@ def handle_game_end(ai_color=None):
         print(f"Game result: {game_result}, New AI Elo: {ai_elo:.2f}")
         with open("elo.txt", "w") as file:
             file.write(f"{ai_elo:.2f}\n")
-        save_pgn("TWO_AIS", ai_color, "Stockfish", game_result, move_history.history_move_list())
+        save_pgn("TWO_AIS", ai_color, "Stockfish " + str(STOCKFISH_LEVEL), game_result,
+                 move_history.history_move_list())
 
     elif game_mode == PLAYER_VS_AI:
         save_pgn("PLAYER_VS_AI", ai_color, "Human", game_result, move_history.history_move_list())
 
     elif game_mode == AI_VS_PLAYER:
-        print (ai_color)
+        print(ai_color)
         save_pgn("AI_VS_PLAYER", ai_color, "Human", game_result, move_history.history_move_list())
 
     pygame.time.wait(2000)
     # Có thể thêm âm thanh kết thúc game ở đây nếu muốn
     running = False
+
+
 def update_screen():
     screen.fill(WHITE)
     last_move = board.peek() if board.move_stack else None
     draw_board(screen, selected_square, legal_moves, last_move, board)
     draw_pieces(screen, board)
-    draw_info_panel(screen, move_history)
+    draw_info_panel(screen, move_history, game_mode)
     pygame.display.flip()
-
 
 def player_vs_ai():
     global running, selected_square, legal_moves
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
-            
+
         elif event_.type == pygame.MOUSEBUTTONDOWN:
             # Xử lý sự kiện cuộn chuột
             if event_.button == 4:  # Cuộn lên
@@ -73,7 +76,7 @@ def player_vs_ai():
             elif event_.button == 5:  # Cuộn xuống
                 move_history.handle_scroll(False)
                 update_screen()
-            
+
             # Xử lý click chuột bình thường
             square = get_square_from_mouse(event_.pos)
 
@@ -81,7 +84,7 @@ def player_vs_ai():
             if selected_square is not None:
                 piece_ = board.piece_at(square)
                 move = chess.Move(selected_square, square)
-                
+
                 # Nếu click vào quân của mình -> chọn quân mới
                 if piece_ and piece_.color == board.turn:
                     selected_square = square
@@ -95,7 +98,7 @@ def player_vs_ai():
                         move_history.add_move(move_san, board.turn == chess.WHITE)
                     except:
                         move_san = move.uci()
-                    
+
                     board.push(move)
                     selected_square = None
                     legal_moves = []
@@ -105,7 +108,7 @@ def player_vs_ai():
                         start_time = time.time()
                         handle_ai_turn()
                         end_time = time.time()
-                        
+
                         if board.move_stack:
                             last_move = board.peek()
                             try:
@@ -113,7 +116,7 @@ def player_vs_ai():
                                 move_history.add_move(ai_move_san, board.turn != chess.WHITE)
                             except:
                                 ai_move_san = last_move.uci()
-                            
+
                             move_history.update_stats(
                                 final_depth_completed,
                                 end_time - start_time
@@ -212,9 +215,10 @@ def get_book_move(board):
     except (IndexError, FileNotFoundError):
         return None
 
+
 def handle_ai_turn(use_stockfish=False):
     global final_depth_completed
-    
+
     # Ưu tiên book trong 12 nước đầu
     if board.fullmove_number <= 12:
         book_move = get_book_move(board)
@@ -252,14 +256,14 @@ def handle_ai_turn(use_stockfish=False):
         start_time = time.time()
         result = get_best_move(board, target_depth=MAX_DEPTH, tt=tt)
         end_time = time.time()
-        
+
         if isinstance(result, tuple):
             best_move, depth = result
             final_depth_completed = depth
         else:
             best_move = result
             final_depth_completed = 0
-        
+
         if best_move:
             print(f"🧠 AI move: {board.san(best_move)}")
             # Phát âm thanh cho AI move
@@ -293,6 +297,7 @@ def ai_vs_ai():
         handle_game_end(ai_color)  # Màu AI
         running = False
 
+
 def player_vs_player():
     global running, selected_square, legal_moves
     for event_ in pygame.event.get():
@@ -318,7 +323,7 @@ def player_vs_player():
                         move_history.add_move(move_san, board.turn == chess.WHITE)
                     except:
                         move_san = move.uci()
-                        
+
                     board.push(move)
                     selected_square = None
                     legal_moves = []
@@ -343,8 +348,6 @@ stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # cái này là 
 stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)
 
 stockfish_elo = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
-game_history = []
-
 
 game_mode = get_game_mode(screen)
 board = chess.Board()
@@ -355,6 +358,7 @@ clock = pygame.time.Clock()
 running = True
 final_depth_completed = 0
 
+
 class MoveHistory:
     def __init__(self):
         self.moves = []  # List of tuples (white_move, black_move)
@@ -362,7 +366,7 @@ class MoveHistory:
         self.last_depth = 0
         self.last_time = 0
         self.scroll_position = 0  # Vị trí cuộn, 0 là ở cuối (nước mới nhất)
-    
+
     def add_move(self, move_san, is_white):
         if is_white:
             self.moves.append((move_san, None))
@@ -371,17 +375,17 @@ class MoveHistory:
                 last_white, _ = self.moves[-1]
                 self.moves[-1] = (last_white, move_san)
         self.scroll_position = 0  # Reset về cuối khi có nước đi mới
-    
+
     def get_visible_moves(self):
         start_idx = max(0, len(self.moves) - 10 - self.scroll_position)
         end_idx = len(self.moves) - self.scroll_position
         return self.moves[start_idx:end_idx]
-    
+
     def get_move_number_start(self):
         total_moves = len(self.moves)
         visible_start = max(0, total_moves - 10 - self.scroll_position)
         return visible_start + 1
-    
+
     def handle_scroll(self, scroll_up):
         if scroll_up:
             # Cuộn lên (xem nước cũ hơn)
@@ -403,7 +407,9 @@ class MoveHistory:
             history_lines.append(move_str)
         return " ".join(history_lines)
 
+
 move_history = MoveHistory()
+
 
 def main():
     while running:
@@ -417,7 +423,7 @@ def main():
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
             ai_vs_player()
-    
+
     # Dọn dẹp âm thanh khi thoát game
     pygame.mixer.quit()
     stockfish_engine.quit()
@@ -425,5 +431,4 @@ def main():
 
 
 if __name__ == "__main__":
-    print()
     main()

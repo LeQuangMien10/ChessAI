@@ -7,6 +7,7 @@ for piece in chess.PIECE_SYMBOLS[1:]:  # 'p', 'n', 'b', 'r', 'q', 'k'
     pieces[piece] = pygame.image.load(f"images/{piece}.png")
     pieces[piece.upper()] = pygame.image.load(f"images/{piece.upper()}_.png")
 
+
 # Hàm vẽ bàn cờ
 def draw_board(screen, selected_square=None, legal_moves=None, last_move=None, board=None):
     if legal_moves is None:
@@ -61,7 +62,6 @@ def draw_board(screen, selected_square=None, legal_moves=None, last_move=None, b
         screen.blit(highlight_surface, end_rect)
 
 
-
 # Hàm vẽ quân cờ
 def draw_pieces(screen, board):
     for square in chess.SQUARES:
@@ -86,12 +86,6 @@ def promote_pawn(board, move, screen):
             color = "white" if piece_.color == chess.WHITE else "black"
             promotion_choice = choose_promotion_pygame(screen, color)
             move.promotion = promotion_choice
-
-
-def choose_promotion_onlyQ():
-    """Hiển thị lựa chọn quân phong cấp, trả về mã quân cờ (hậu, xe, mã, tượng)."""
-    # Ở đây ta mặc định phong cấp thành Hậu (Queen)
-    return chess.QUEEN
 
 
 def choose_promotion_pygame(screen, colorTurn):
@@ -144,73 +138,125 @@ def choose_promotion_pygame(screen, colorTurn):
                         return piece_
 
 
-def draw_info_panel(screen, move_history):
-    # Vẽ background đen cho panel bên phải
-    info_panel = pygame.Rect(BOARD_SIZE, 0, 200, BOARD_SIZE)
-    pygame.draw.rect(screen, (0, 0, 0), info_panel)
-    
+def draw_info_panel(screen, move_history, game_mode):
+    # Vẽ background cho panel bên phải
+    info_panel = pygame.Rect(BOARD_SIZE, 0, 201, BOARD_SIZE)
+    pygame.draw.rect(screen, (105, 117, 101), info_panel)
+
     # Font cho bảng
-    font = pygame.font.Font(None, 24)
-    
+    font_size = 24
+    font = pygame.font.Font(None, font_size)
+
     # Vẽ bảng nước đi
-    header_y = 20
+    header_y = 60
     headers = ["#", "White", "Black"]
     col_widths = [30, 80, 80]
     x_start = BOARD_SIZE + 10
-    
+
+
+    #Xác định màu người chơi, AI, Stockfish
+    elo_stockfish = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
+    with open("elo.txt", "r") as file:
+        ai_elo = float(file.readline().strip())
+    ai_elo_round_number = round(ai_elo)
+    if game_mode == AI_VS_PLAYER:
+        player_white = "My AI"
+        player_black = "Human"
+        elo_white = ai_elo_round_number
+        elo_black = "?"
+    elif game_mode  == PLAYER_VS_AI:
+        player_white = "Human"
+        player_black = "My AI"
+        elo_white = "?"
+        elo_black = ai_elo_round_number
+    elif game_mode== TWO_PLAYERS:
+        player_white = "Human 1"
+        player_black = "Human 2"
+        elo_white = "?"
+        elo_black = "?"
+    else:
+        if not STOCKFISH_WHITE:
+            player_white = "My AI"
+            player_black = "Stockfish " + str(STOCKFISH_LEVEL)
+            elo_white = ai_elo_round_number
+            elo_black = elo_stockfish
+        else:
+            player_white = "Stockfish " + str(STOCKFISH_LEVEL)
+            player_black = "My AI"
+            elo_white = elo_stockfish
+            elo_black = ai_elo_round_number
+
+    # Vẽ tên người chơi
+    white_player_text = font.render(f"{player_white}", True, (255, 255, 255))
+    black_player_text = font.render(f"{player_black}", True, (255, 255, 255))
+    screen.blit(white_player_text, (x_start + 30, 10))  # Tên người chơi trắng
+    screen.blit(black_player_text, (x_start + 30, 30))  # Tên người chơi đen
+
+    # Vẽ elo
+    white_elo_text = font.render(f"({elo_white})", True, (255, 255, 255))
+    black_elo_text = font.render(f"({elo_black})", True, (255, 255, 255))
+    elo_x_position = x_start + 100 + 20
+    screen.blit(white_elo_text, (elo_x_position, 10))
+    screen.blit(black_elo_text, (elo_x_position, 30))
+
+    # Vẽ hình vuông trắng cho người chơi trắng
+    pygame.draw.rect(screen, (255, 255, 255), (x_start - font_size + 25, 10, font_size - 10, font_size - 10))
+    # Vẽ hình vuông đen cho người chơi đen
+    pygame.draw.rect(screen, (0, 0, 0), (x_start - font_size + 25, 30, font_size - 10, font_size - 10))
+
     # Vẽ header
     for i, header in enumerate(headers):
         x = x_start + sum(col_widths[:i])
         text = font.render(header, True, (255, 255, 255))
         screen.blit(text, (x, header_y))
-    
+
     # Vẽ đường kẻ ngang dưới header
     pygame.draw.line(screen, (255, 255, 255),
-                    (x_start, header_y + 25),
-                    (x_start + sum(col_widths), header_y + 25))
-    
+                     (x_start, header_y + 25),
+                     (x_start + sum(col_widths), header_y + 25))
+
     # Vẽ các nước đi
     moves = move_history.get_visible_moves()
     start_move_number = move_history.get_move_number_start()
     row_height = 22
-    
+
     # Vẽ vùng hiển thị nước đi với viền
     moves_area = pygame.Rect(x_start - 5, header_y + 30,
-                           sum(col_widths) + 10, row_height * 10 + 5)
+                             sum(col_widths) + 10, row_height * 10 + 5)
     pygame.draw.rect(screen, (30, 30, 30), moves_area, 1)  # Vẽ viền
-    
+
     for row, (white, black) in enumerate(moves):
         y = header_y + 35 + row * row_height
         move_num = start_move_number + row
-        
+
         # Highlight nước mới nhất khi đang ở cuối
         is_latest_move = (row == len(moves) - 1 and move_history.scroll_position == 0)
         if is_latest_move:
             highlight_rect = pygame.Rect(x_start - 5, y - 2,
-                                      sum(col_widths) + 10, row_height)
+                                         sum(col_widths) + 10, row_height)
             pygame.draw.rect(screen, (50, 50, 50), highlight_rect)
-        
+
         # Số thứ tự
         num_text = font.render(str(move_num), True, (255, 255, 255))
         screen.blit(num_text, (x_start, y))
-        
+
         # Nước trắng
         if white:
             white_text = font.render(white, True, (255, 255, 255))
             screen.blit(white_text, (x_start + col_widths[0], y))
-        
+
         # Nước đen
         if black:
             black_text = font.render(black, True, (255, 255, 255))
             screen.blit(black_text, (x_start + col_widths[0] + col_widths[1], y))
-    
+
     # Vẽ thanh cuộn
     if len(move_history.moves) > 10:
         scrollbar_x = x_start + sum(col_widths) + 15
         scrollbar_height = row_height * 10
         scrollbar_rect = pygame.Rect(scrollbar_x, header_y + 35, 5, scrollbar_height)
         pygame.draw.rect(screen, (100, 100, 100), scrollbar_rect)
-        
+
         # Vẽ nút cuộn
         total_moves = len(move_history.moves)
         visible_ratio = 10 / total_moves
@@ -218,18 +264,19 @@ def draw_info_panel(screen, move_history):
         thumb_pos = (scrollbar_height - thumb_height) * (move_history.scroll_position / (total_moves - 10))
         thumb_rect = pygame.Rect(scrollbar_x, header_y + 35 + thumb_pos, 5, thumb_height)
         pygame.draw.rect(screen, (200, 200, 200), thumb_rect)
-    
+
     # Vẽ thông tin depth và time
     info_y = header_y + 300
     pygame.draw.line(screen, (255, 255, 255),
-                    (x_start, info_y - 10),
-                    (x_start + sum(col_widths), info_y - 10))
-    
+                     (x_start, info_y - 10),
+                     (x_start + sum(col_widths), info_y - 10))
+
     depth_text = font.render(f"Depth: {move_history.last_depth}", True, (255, 255, 255))
     time_text = font.render(f"Time: {move_history.last_time:.2f}s", True, (255, 255, 255))
-    
+
     screen.blit(depth_text, (x_start, info_y))
     screen.blit(time_text, (x_start, info_y + 30))
+
 
 def play_move_sound(board, move):
     """
