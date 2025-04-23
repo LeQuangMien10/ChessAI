@@ -18,6 +18,9 @@ LMR_MIN_MOVE_COUNT = 4
 QSEARCH_SEE_PRUNING_THRESHOLD = -75
 DELTA_PRUNING_MARGIN = 150
 
+FUTILITY_MARGIN_DEPTH_1 = 150
+FUTILITY_MARGIN_DEPTH_2 = 400
+
 MAX_PLY = 64
 
 # --- Cấu trúc dữ liệu tạm thời (nếu chưa có) ---
@@ -214,6 +217,15 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
         if tt_move_maybe:
             tt_move = tt_move_maybe
 
+    # --- Static Evaluation for Futility Pruning ---
+    static_eval = 0
+    can_apply_futility = False
+    if not is_root and not board_.is_check() and (depth_ == 1 or depth_ == 2):
+        eval_score_white_pov = evaluate_position(board_)
+        perspective_multiplier = 1 if board_.turn == chess.WHITE else -1
+        static_eval = eval_score_white_pov * perspective_multiplier
+        can_apply_futility = True
+
     # --- 3. Null Move Pruning (NMP) ---
     non_pawn_king_material = sum(
         len(board_.pieces(pt, chess.WHITE)) + len(board_.pieces(pt, chess.BLACK))
@@ -273,6 +285,17 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
         # gives_check = board_.gives_check(move) # Có thể tốn kém, cân nhắc
         is_quiet = not is_capture and not is_promotion  # and not gives_check
 
+        # --- Futility Pruning Application ---
+        if can_apply_futility and is_quiet:
+            prune = False
+            futility_margin = 0
+            if depth_ == 1:
+                futility_margin = FUTILITY_MARGIN_DEPTH_1
+            elif depth_ == 2:
+                futility_margin = FUTILITY_MARGIN_DEPTH_2
+            if static_eval + futility_margin < alpha:
+                continue
+
         board_.push(move)
 
         score: int = 0
@@ -331,12 +354,16 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
 
     # --- 6. TT Store ---
     node_type: int
-    if max_score <= original_alpha:
-        node_type = NodeType.UPPER_BOUND  # Fail Low
-    elif max_score >= beta:
-        node_type = NodeType.LOWER_BOUND  # Fail High
+    if max_score == float('-inf'):
+        node_type = NodeType.UPPER_BOUND
+        max_score = original_alpha
     else:
-        node_type = NodeType.EXACT  # PV Node
+        if max_score <= original_alpha:
+            node_type = NodeType.UPPER_BOUND  # Fail Low
+        elif max_score >= beta:
+            node_type = NodeType.LOWER_BOUND  # Fail High
+        else:
+            node_type = NodeType.EXACT  # PV Node
 
     # Chỉ lưu nếu không bị cắt tỉa ở gốc hoặc có nước đi tốt
     if best_move_found_in_node is not None or node_type == NodeType.LOWER_BOUND:  # Cần có nước đi để lưu LOWER_BOUND
