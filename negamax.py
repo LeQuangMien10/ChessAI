@@ -393,6 +393,11 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
     pv_line_completed_depth = [] # Lưu PV từ lần lặp sâu nhất
     final_depth_completed = 0
 
+    time_taken_last_depth = 0.0
+    time_factor_heuristic = 2.0
+    min_time_for_next_depth = 0.1
+    effective_time_limit = time_limit_seconds * 0.9 if time_limit_seconds is not None else float('inf')
+
     # Lấy danh sách nước đi hợp lệ một lần ở đầu
     legal_moves = list(board_.legal_moves)
     if not legal_moves:
@@ -401,6 +406,24 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
 
     # --- Vòng lặp Iterative Deepening ---
     for current_depth in range(1, target_depth + 1):
+        depth_start_time = time.time()
+
+        # --- Smart Time Allocation Check (Sử dụng effective_time_limit) ---
+        time_elapsed_so_far = depth_start_time - start_time
+        time_remaining = effective_time_limit - time_elapsed_so_far
+        estimated_time_needed = 0
+        if current_depth > 1 and time_taken_last_depth > 0:
+             estimated_time_needed = time_taken_last_depth * time_factor_heuristic
+        should_start_depth = False
+        if time_remaining > min_time_for_next_depth:
+            # Ước tính thận trọng hơn: cần đủ thời gian ước tính * 1.5
+            if current_depth <= 2 or estimated_time_needed == 0 or time_remaining > estimated_time_needed * 1.5:
+                should_start_depth = True
+        if not should_start_depth and time_limit_seconds is not None:
+             print(f"\nTime Alloc: Not enough time for depth {current_depth}. Returning best from {final_depth_completed}.")
+             break
+
+
         ply = 0
         alpha = -CHECKMATE_SCORE # Đặt lại alpha/beta cho mỗi độ sâu
         beta = CHECKMATE_SCORE
@@ -434,14 +457,11 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
 
         # --- Duyệt qua các nước đi gốc ở độ sâu hiện tại ---
         for i, move in enumerate(ordered_legal_moves):
-
-            # KIỂM TRA THỜI GIAN NGAY TỪ ĐẦU VÒNG LẶP
-            if time_limit_seconds is not None:
-                elapsed_time = time.time() - start_time
-                if elapsed_time > time_limit_seconds * 0.7:
-                    print(f"\nTime limit ({elapsed_time:.1f}s) reached BEFORE starting move {i+1} at depth {current_depth}. Returning best from depth {final_depth_completed}.")
-                    search_interrupted = True # Đặt cờ ngắt
-                    break # Thoát khỏi vòng lặp for move
+            current_elapsed = time.time() - start_time
+            if time_limit_seconds is not None and current_elapsed > effective_time_limit:
+                 print(f"\nHard Time Cutoff ({current_elapsed:.1f}s > {effective_time_limit:.1f}s) before move {i+1} at depth {current_depth}. Returning best from {final_depth_completed}.")
+                 search_interrupted = True
+                 break
 
             # <<<--- Tính SAN trước khi push/pop ---<<<
             try:
@@ -487,18 +507,14 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
             board_.pop()
 
 
-            # --- KIỂM TRA THỜI GIAN SAU KHI SEARCH XONG 1 NƯỚC ---
-            # Quan trọng: Kiểm tra lại sau mỗi lệnh gọi negamax tốn thời gian
-            if time_limit_seconds is not None:
-                 current_elapsed = time.time() - start_time
-                 if current_elapsed > time_limit_seconds:
-                      print(f"\nTime limit ({current_elapsed:.1f}s) reached AFTER searching move {move_san} at depth {current_depth}. Returning best from depth {final_depth_completed}.")
-                      search_interrupted = True # Đặt cờ ngắt
-                      # Không cập nhật best_move_this_iteration nữa vì search chưa hoàn tất
-                      break # Thoát khỏi vòng lặp for move
-
-
-            # print(f"  Move: {move_san}, Score: {score:.0f}") # In điểm từng nước
+            # --- Kiểm tra thời gian NGHIÊM NGẶT sau search ---
+            current_elapsed = time.time() - start_time
+            if time_limit_seconds is not None and current_elapsed > effective_time_limit:
+                 print(f"\nHard Time Cutoff ({current_elapsed:.1f}s > {effective_time_limit:.1f}s) after move {move_san} at depth {current_depth}. Returning best from {final_depth_completed}.")
+                 search_interrupted = True
+                 # Quan trọng: KHÔNG cập nhật best_move_this_iteration nếu hết giờ NGAY SAU KHI search xong nước này
+                 # vì kết quả của lần lặp này chưa hoàn chỉnh.
+                 break
 
             # --- Cập nhật nước đi tốt nhất cho lần lặp này ---
             if score > best_score_this_iteration:
@@ -514,11 +530,11 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
 
         # --- CHỈ CẬP NHẬT KẾT QUẢ HOÀN THÀNH NẾU KHÔNG BỊ NGẮT ---
         if not search_interrupted:
-            # Nếu vòng lặp for kết thúc bình thường (không break do time limit)
             if best_move_this_iteration is not None:
                 best_move_completed_depth = best_move_this_iteration
                 best_score_completed_depth = best_score_this_iteration
-                final_depth_completed = current_depth  # Cập nhật độ sâu hoàn thành
+                final_depth_completed = current_depth
+                time_taken_last_depth = time.time() - depth_start_time
 
                 # --- Trích xuất PV và In thông tin ---
                 pv_line_current = []

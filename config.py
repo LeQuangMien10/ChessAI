@@ -22,10 +22,10 @@ PLAYER_VS_AI = 2
 AI_VS_PLAYER = 3
 
 # Game
-MAX_DEPTH = 7
+MAX_DEPTH = 10
 TIME_LIMIT = 10
 STOCKFISH_LEVEL = 4
-STOCKFISH_WHITE = True
+STOCKFISH_WHITE = False
 # True: Stockfish (Trắng), AI (Đen)
 # False: Stockfish (Đen), AI (Trắng)
 ELO_PER_SKILL_LEVEL = {
@@ -124,9 +124,9 @@ KING_POSITION_BONUS_EG = [ # Khuyến khích Vua ra trung tâm
 PAWN_POSITION_BONUS_MG = PAWN_POSITION_BONUS # Giữ nguyên cho MG
 PAWN_POSITION_BONUS_EG = [ # Ví dụ: tăng mạnh giá trị Tốt ở hàng 6, 7
     [  0,   0,   0,   0,   0,   0,   0,   0],
-    [100, 100, 100, 100, 100, 100, 100, 100], # Hàng 7 (index 1)
-    [ 80,  80,  80,  80,  80,  80,  80,  80], # Hàng 6
-    [ 50,  50,  50,  50,  50,  50,  50,  50],
+    [120, 120, 120, 120, 120, 120, 120, 120], # Hàng 7 (index 1)
+    [ 90,  90,  90,  90,  90,  90,  90,  90], # Hàng 6
+    [ 60,  60,  60,  60,  60,  60,  60,  60],
     [ 20,  20,  20,  30,  30,  20,  20,  20],
     [ 10,  10,  10,  10,  10,  10,  10,  10],
     [  5,   5,   5,   5,   5,   5,   5,   5],
@@ -144,8 +144,8 @@ QUEEN_POSITION_BONUS_EG = QUEEN_POSITION_BONUS # Hậu thường yếu đi ở E
 
 PIECE_VALUES = {
     chess.PAWN: 100,
-    chess.KNIGHT: 300,
-    chess.BISHOP: 300,
+    chess.KNIGHT: 310,
+    chess.BISHOP: 310,
     chess.ROOK: 500,
     chess.QUEEN: 900,
     chess.KING: 0
@@ -153,15 +153,15 @@ PIECE_VALUES = {
 
 PIECE_VALUES_MG = {
     chess.PAWN: 100,
-    chess.KNIGHT: 305,
+    chess.KNIGHT: 315,
     chess.BISHOP: 330,
     chess.ROOK: 500,
     chess.QUEEN: 975,
     chess.KING: 0
 }
 PIECE_VALUES_EG = {
-    chess.PAWN: 120,
-    chess.KNIGHT: 300,
+    chess.PAWN: 110,
+    chess.KNIGHT: 310,
     chess.BISHOP: 315, # Giá trị tương đối có thể giảm nhẹ
     chess.ROOK: 530,
     chess.QUEEN: 950,
