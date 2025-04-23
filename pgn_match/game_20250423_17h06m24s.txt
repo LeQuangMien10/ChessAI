@@ -1,0 +1,7 @@
+[Event "AI_VS_PLAYER"]
+[Date "20250423_17h06m24s"]
+[White "My AI"]
+[Black "Human"]
+[Result "1-0"]
+
+1. e4 e6 2. d4 Nf6 3. e5 Ng4 4. Qxg4 Ke7 5. Bg5+ f6 6. Bf4 fxe5 7. Bg5+ Kf7 8. Bxd8 Ke8 9. Bxc7 Ke7 10. Bxe5 Kf7 11. Qf4+ Kg8 12. Bxb8 Bd6 13. Bxd6 b6 14. Qf8# 

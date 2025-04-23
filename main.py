@@ -3,6 +3,7 @@ from menu import *
 from game import *
 from negamax import get_best_move
 from fen_string_test import *
+from pgn import save_pgn
 from transposition_table import TranspositionTable
 from stockfish_test import StockfishEngine
 import chess.polyglot
@@ -31,17 +32,24 @@ def handle_game_end(ai_color=None):
     pygame.display.flip()
 
     # Tính Elo nếu chơi với Stockfish
+    game_result = board.result()
     if game_mode == TWO_AIS:
-        game_result = board.result()
         ai_elo = stockfish_engine.calculate_elo(ai_elo, stockfish_elo, game_result, ai_color)
         print(f"Game result: {game_result}, New AI Elo: {ai_elo:.2f}")
         with open("elo.txt", "w") as file:
             file.write(f"{ai_elo:.2f}\n")
+        save_pgn("TWO_AIS", ai_color, "Stockfish", game_result, move_history.history_move_list())
+
+    elif game_mode == PLAYER_VS_AI:
+        save_pgn("PLAYER_VS_AI", ai_color, "Human", game_result, move_history.history_move_list())
+
+    elif game_mode == AI_VS_PLAYER:
+        print (ai_color)
+        save_pgn("AI_VS_PLAYER", ai_color, "Human", game_result, move_history.history_move_list())
 
     pygame.time.wait(2000)
     # Có thể thêm âm thanh kết thúc game ở đây nếu muốn
     running = False
-
 def update_screen():
     screen.fill(WHITE)
     last_move = board.peek() if board.move_stack else None
@@ -138,28 +146,60 @@ def ai_vs_player():
         elif event_.type == pygame.MOUSEBUTTONDOWN:
             square = get_square_from_mouse(event_.pos)
 
+            # Nếu chưa chọn quân nào
             if selected_square is None:
                 piece_ = board.piece_at(square)
                 if piece_ and piece_.color == board.turn:
                     selected_square = square
                     legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+
+            # Nếu đã chọn quân
             else:
                 move = chess.Move(selected_square, square)
                 promote_pawn(board, move, screen)
+
+                # Nếu nước đi hợp lệ
                 if move in board.legal_moves:
+                    # Phát âm thanh trước khi thực hiện nước đi
+                    play_move_sound(board, move)
+                    try:
+                        move_san = board.san(move)
+                        move_history.add_move(move_san, board.turn == chess.WHITE)
+                    except:
+                        move_san = move.uci()
+
                     board.push(move)
                     selected_square = None
                     legal_moves = []
                     update_screen()
+
+                    # Nếu không phải là lượt cuối, chuyển sang lượt AI
+                    if not board.is_game_over():
+                        start_time = time.time()
+                        handle_ai_turn()
+                        end_time = time.time()
+
+                        if board.move_stack:
+                            last_move = board.peek()
+                            try:
+                                ai_move_san = board.san(last_move)
+                                move_history.add_move(ai_move_san, board.turn != chess.WHITE)
+                            except:
+                                ai_move_san = last_move.uci()
+
+                            move_history.update_stats(
+                                final_depth_completed,
+                                end_time - start_time
+                            )
                 else:
-                    # Nếu click vào ô không hợp lệ, cho phép chọn quân cờ khác
+                    # Nếu click vào ô không hợp lệ -> bỏ chọn
+                    selected_square = None
+                    legal_moves = []
                     piece_ = board.piece_at(square)
                     if piece_ and piece_.color == board.turn:
                         selected_square = square
                         legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
-                    else:
-                        selected_square = None
-                        legal_moves = []
+
         if board.is_game_over():
             handle_game_end()
             break
@@ -238,7 +278,7 @@ def handle_ai_turn(use_stockfish=False):
 def ai_vs_ai():
     # True: Stockfish (Trắng), AI (Đen)
     # False: Stockfish (Đen), AI (Trắng)
-    use_stockfish = False
+    use_stockfish = True
     global running
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
@@ -363,6 +403,13 @@ class MoveHistory:
     def update_stats(self, depth, time):
         self.last_depth = depth
         self.last_time = time
+
+    def history_move_list(self):
+        history_lines = []
+        for i, (white_move, black_move) in enumerate(self.moves, start=1):
+            move_str = f"{i}. {white_move or ''} {black_move or ''}"
+            history_lines.append(move_str)
+        return " ".join(history_lines)
 
 move_history = MoveHistory()
 

@@ -1,0 +1,7 @@
+[Event "TWO_AIS"]
+[Date "20250423_17h08m54s"]
+[White "Stockfish"]
+[Black "My AI"]
+[Result "0-1"]
+
+1. d4 Nf6 2. Nf3 c5 3. d5 b5 4. Bg5 Qb6 5. Nc3 b4 6. Na4 Qb5 7. Bxf6 gxf6 8. e4 Qxa4 9. b3 Qa5 10. Bc4 Rg8 11. Nd2 Rxg2 12. d6 exd6 13. Bxf7+ Kxf7 14. Qf3 Rg6 15. Qf5 Ke8 16. Rf1 Qc7 17. Nc4 Nc6 18. O-O-O Nd4 19. Qh5 Bh6+ 20. f4 Bb7 21. h4 Bxe4 22. Rfe1 f5 23. Rxe4+ fxe4 24. c3 bxc3 25. Rf1 c2 26. Kb2 Qc6 27. f5 c1=Q+ 28. Rxc1 Bxc1+ 29. Kb1 Nxf5 30. Ne5 dxe5 31. b4 Nxh4 32. a3 Bg5 33. Qxh7 cxb4 34. Qh5 Qc1+ 35. Ka2 Qxa3+ 36. Kb1 Qc1+ 37. Ka2 Qa3+ 38. Kb1 Qc1+ 39. Ka2 Qa3+ 40. Kb1 Qc1+ 41. Ka2 Qa3+ 42. Kb1 Qc1+ 43. Ka2 Qc2+ 44. Ka1 Qc3+ 45. Kb1 Qe1+ 46. Ka2 Bf6 47. Qh7 Qd1 48. Qg8+ Rxg8 49. Kb2 Rg2#
