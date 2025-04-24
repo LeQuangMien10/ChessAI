@@ -17,7 +17,9 @@ Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại
 - Dự án **_AI CHESS ENGINE_** là một hệ thống AI chơi cờ vua được phát triển bằng **_ngôn ngữ Python_** và sử dụng **_pygame_** và **_chess_** để hỗ trợ tạo giao diện.
 - Mục tiêu của dự án là xây dựng một đối thủ có khả năng phân tích sâu, chơi thông minh và phản ứng nhanh trong mọi tình huống trên bàn cờ.
 - Dự án phù hợp để học tập về thuật toán AI trong trò chơi, nghiên cứu chiến thuật cờ vua, hoặc đơn giản là một thử thách thú vị cho người chơi muốn đối đầu với một AI chiến lược.
-  
+
+  ![mainScreen](https://github.com/LeQuangMien10/ChessAI/blob/MinimaxAI/images/Readme_demo/mainScreen.png)
+  ![gameScreen](https://github.com/LeQuangMien10/ChessAI/blob/MinimaxAI/images/Readme_demo/gameScreen.png)
 ## Tính năng
 - AI có thể tính được độ sâu tối đa là 10 và ra quyết định thực hiện nước đi với thời gian < 10s
 - Người dùng có thể chọn 1 trong 4 chế độ chơi:
