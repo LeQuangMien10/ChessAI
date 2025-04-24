@@ -417,7 +417,7 @@ def get_best_move(board_: chess.Board, target_depth: int, tt: TranspositionTable
         should_start_depth = False
         if time_remaining > min_time_for_next_depth:
             # Ước tính thận trọng hơn: cần đủ thời gian ước tính * 1.5
-            if current_depth <= 2 or estimated_time_needed == 0 or time_remaining > estimated_time_needed * 1.5:
+            if current_depth <= 2 or estimated_time_needed == 0 or time_remaining > estimated_time_needed * 1.25:
                 should_start_depth = True
         if not should_start_depth and time_limit_seconds is not None:
              print(f"\nTime Alloc: Not enough time for depth {current_depth}. Returning best from {final_depth_completed}.")

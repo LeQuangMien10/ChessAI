@@ -340,7 +340,7 @@ stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)
 stockfish_elo = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
 
 game_mode = get_game_mode(screen)
-board = chess.Board("8/2PP4/8/2r5/P2k4/8/6RK/8 w - - 3 70")
+board = chess.Board()
 tt = TranspositionTable(size_mb=128)
 selected_square = None
 legal_moves = []
