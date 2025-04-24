@@ -23,7 +23,7 @@ AI_VS_PLAYER = 3
 
 # Game
 MAX_DEPTH = 10
-TIME_LIMIT = 10
+TIME_LIMIT = 9
 STOCKFISH_LEVEL = 4
 STOCKFISH_WHITE = False
 # True: Stockfish (Trắng), AI (Đen)
