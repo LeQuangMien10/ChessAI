@@ -1,4 +1,5 @@
 import chess
+import random
 import pygame
 
 # Size
@@ -25,7 +26,7 @@ AI_VS_PLAYER = 3
 MAX_DEPTH = 10
 TIME_LIMIT = 9
 STOCKFISH_LEVEL = 4
-STOCKFISH_WHITE = False
+STOCKFISH_WHITE = random.choice([True, False])
 # True: Stockfish (Trắng), AI (Đen)
 # False: Stockfish (Đen), AI (Trắng)
 ELO_PER_SKILL_LEVEL = {

@@ -2,7 +2,6 @@ import pygame.time
 from menu import *
 from game import *
 from negamax import get_best_move
-from fen_string_test import *
 from pgn import save_pgn
 from transposition_table import TranspositionTable
 from stockfish_test import StockfishEngine
