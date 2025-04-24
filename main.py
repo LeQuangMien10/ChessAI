@@ -64,35 +64,27 @@ def update_screen():
 
 def player_vs_ai():
     global running, selected_square, legal_moves
+
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
 
-        elif event_.type == pygame.MOUSEBUTTONDOWN:
-            # Xử lý sự kiện cuộn chuột
-            if event_.button == 4:  # Cuộn lên
-                move_history.handle_scroll(True)
-                update_screen()
-            elif event_.button == 5:  # Cuộn xuống
-                move_history.handle_scroll(False)
-                update_screen()
-
-            # Xử lý click chuột bình thường
+        elif event_.type == pygame.MOUSEBUTTONDOWN and not board.is_game_over():
             square = get_square_from_mouse(event_.pos)
 
-            # Nếu click vào ô trống hoặc quân địch khi đã chọn một quân
-            if selected_square is not None:
+            if selected_square is None:
                 piece_ = board.piece_at(square)
-                move = chess.Move(selected_square, square)
-
-                # Nếu click vào quân của mình -> chọn quân mới
                 if piece_ and piece_.color == board.turn:
                     selected_square = square
                     legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
-                # Nếu là nước đi hợp lệ -> thực hiện nước đi
-                elif move in board.legal_moves:
-                    sound_manager.play_move_sound(board, move)
-                    promote_pawn(board, move, screen)
+
+            else:
+                move = chess.Move(selected_square, square)
+                promote_pawn(board, move, screen)
+
+                if move in board.legal_moves:
+                    play_move_sound(board, move)
+
                     try:
                         move_san = board.san(move)
                         move_history.add_move(move_san, board.turn == chess.WHITE)
@@ -104,6 +96,7 @@ def player_vs_ai():
                     legal_moves = []
                     update_screen()
 
+                    # Nếu chưa hết game thì AI đi
                     if not board.is_game_over():
                         start_time = time.time()
                         handle_ai_turn()
@@ -122,19 +115,16 @@ def player_vs_ai():
                                 end_time - start_time
                             )
                 else:
-                    # Nếu click vào ô không hợp lệ và không phải quân của mình -> bỏ chọn
                     selected_square = None
                     legal_moves = []
-            # Chưa chọn quân nào
-            else:
-                piece_ = board.piece_at(square)
-                if piece_ and piece_.color == board.turn:
-                    selected_square = square
-                    legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
+                    piece_ = board.piece_at(square)
+                    if piece_ and piece_.color == board.turn:
+                        selected_square = square
+                        legal_moves = [move.to_square for move in board.legal_moves if move.from_square == square]
 
-        if board.is_game_over():
-            handle_game_end()
-            break
+    if board.is_game_over():
+        handle_game_end()
+
 
 
 def ai_vs_player():
@@ -350,7 +340,7 @@ stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)
 stockfish_elo = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
 
 game_mode = get_game_mode(screen)
-board = chess.Board()
+board = chess.Board("8/2PP4/8/2r5/P2k4/8/6RK/8 w - - 3 70")
 tt = TranspositionTable(size_mb=128)
 selected_square = None
 legal_moves = []
