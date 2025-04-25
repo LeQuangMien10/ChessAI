@@ -1,7 +1,7 @@
-# AI CHESS ENGINE
+# ♟️ AI CHESS ENGINE
 Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại học Công Nghệ - Đại học Quốc gia Hà Nội (UET)_ thực hiện trong môn học _Trí tuệ nhân tạo AI_ 
 Lớp: Trí Tuệ Nhân Tạo INT3401E5
-## Tác giả
+## 👨‍💻 Tác giả
  **_Group 5_**
 | Tên                            | MSV       |
 |--------------------------------|-----------|
@@ -9,7 +9,7 @@ Lớp: Trí Tuệ Nhân Tạo INT3401E5
 | Mạch Trần Quang Nhật           | 23021653  |
 | Nguyễn Thành Phước             | 23021665  |
 
-## Cài Đặt
+## ⚙️ Cài Đặt
 - Download zip và giải nén dự án tại link ...
 - Dùng IDE thích hợp và thêm các thư viện cần thiết: python-chess, pygame, ...
 - Mở file, tìm đến thư mục _main.py_ và **_RUN_**
@@ -21,7 +21,7 @@ Lớp: Trí Tuệ Nhân Tạo INT3401E5
 
   ![mainScreen](https://github.com/LeQuangMien10/ChessAI/blob/MinimaxAI/images/Readme_demo/mainScreen.png)
   ![gameScreen](https://github.com/LeQuangMien10/ChessAI/blob/MinimaxAI/images/Readme_demo/gameScreen.png)
-## Tính năng## 
+## ✨ Tính năng
 - [x] Độ sâu tối đa của AI: **10**, thời gian phản hồi < **10s**
 - [x] Chế độ chơi đa dạng:
   - 👤 PLAYER vs PLAYER
@@ -29,20 +29,21 @@ Lớp: Trí Tuệ Nhân Tạo INT3401E5
   - 🤖 AI vs PLAYER (cầm quân Đen)
   - 🤖 AI vs 🤖 (My AI vs Stockfish)
 - [x] Đánh giá **Elo** của bot qua chế độ AI vs AI
+## 🔬 Kỹ thuật được áp dụng
+- 🧮 Negamax Algorithm
+- ✂️ Alpha-Beta Pruning
+- 🧠 Heuristic Functions
+- 🔀 Move Ordering
+- ⚖️ Static Exchange Evaluation
+- 🧠 Transposition Table
+- 🔁 Iterative Deepening
+- 📉 Quiescence Search
+- 🐌 Late Move Reduction
+- ❌ Null Move Pruning
+- 🪶 Futility Pruning
+...
 
-## Kỹ thuật áp dụng
-- Negamax Algorithm
-- Alpha-Beta Pruning
-- Heuristic Functions
-- Move Ordering
-- Static Exchange Evaluation
-- Transposition Table
-- Iterative Deepening
-- Quiescence Search
-- Late Move Reduction
-- Null Move Pruning
-- Futility Pruning
-- ...
 ## 🤝 Đóng góp
-Chúng mình hoan nghênh mọi đóng góp từ cộng đồng! Nếu bạn có ý tưởng hay cải tiến, hãy tạo pull request hoặc liên hệ qua GitHub.
+Chúng mình hoan nghênh mọi đóng góp từ cộng đồng!
+Nếu bạn có ý tưởng hay cải tiến, hãy tạo pull request hoặc liên hệ qua GitHub.
 Chân thành cảm ơn!
