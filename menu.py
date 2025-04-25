@@ -91,7 +91,7 @@ def get_game_mode(screen):
     
     # Tính toán layout tổng thể
     title_height = TITLE.get_height()
-    total_button_height = (button_height * 4) + (spacing * 3)  # Tổng chiều cao phần buttons
+    total_button_height = (button_height * 3) + (spacing * 2)  # Tổng chiều cao phần buttons (giảm xuống 3 buttons)
     
     # Tính khoảng cách từ trên xuống để căn đều
     total_content_height = title_height + 25 + total_button_height  # Giảm khoảng cách giữa title và buttons xuống 25
@@ -111,8 +111,7 @@ def get_game_mode(screen):
     buttons = [
         Button(button_x, first_button_y + (button_height + spacing) * 0, button_width, button_height, "Player vs Player"),
         Button(button_x, first_button_y + (button_height + spacing) * 1, button_width, button_height, "Player vs AI"),
-        Button(button_x, first_button_y + (button_height + spacing) * 2, button_width, button_height, "AI vs Player"),
-        Button(button_x, first_button_y + (button_height + spacing) * 3, button_width, button_height, "AI vs AI")
+        Button(button_x, first_button_y + (button_height + spacing) * 2, button_width, button_height, "AI vs Player")
     ]
 
     while True:
@@ -126,7 +125,7 @@ def get_game_mode(screen):
             for i, button in enumerate(buttons):
                 if button.handle_event(event):
                     sound_manager.stop_lobby_music()
-                    return [TWO_PLAYERS, PLAYER_VS_AI, AI_VS_PLAYER, TWO_AIS][i]
+                    return [TWO_PLAYERS, PLAYER_VS_AI, AI_VS_PLAYER][i]
 
         # Vẽ background
         draw_animated_background(screen, current_time)
