@@ -38,7 +38,7 @@ def handle_game_end(ai_color=None):
         print(f"Game result: {game_result}, New AI Elo: {ai_elo:.2f}")
         with open("elo.txt", "w") as file:
             file.write(f"{ai_elo:.2f}\n")
-        save_pgn("TWO_AIS", ai_color, "Stockfish " + str(STOCKFISH_LEVEL), game_result,
+        save_pgn("TWO_AIS", ai_color, "Stockfish " + str(stockfish_level), game_result,
                  move_history.history_move_list())
 
     elif game_mode == PLAYER_VS_AI:
@@ -58,7 +58,7 @@ def update_screen():
     last_move = board.peek() if board.move_stack else None
     draw_board(screen, selected_square, legal_moves, last_move, board)
     draw_pieces(screen, board)
-    draw_info_panel(screen, move_history, game_mode)
+    draw_info_panel(screen, move_history, game_mode, stockfish_level)
     pygame.display.flip()
 
 def player_vs_ai():
@@ -334,9 +334,7 @@ def player_vs_player():
 # Khởi tạo Stockfish engine
 stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # cái này là đường dẫn của anh em
 # stockfish_path = "/Users/phuocthanh/Documents/ChessAI/stockfish copy/stockfish-macos-m1-apple-silicon"  # cái này của Phước ae comment thôi đừng xoá !!!!!!!!!!!!!!!!!!!!!!!!!.
-stockfish_engine = StockfishEngine(stockfish_path, skill_level=STOCKFISH_LEVEL)
 
-stockfish_elo = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
 
 game_mode = get_game_mode(screen)
 board = chess.Board()
@@ -401,13 +399,27 @@ move_history = MoveHistory()
 
 
 def main():
+    global stockfish_engine, stockfish_level, stockfish_elo
+    level_chosen = False
+    engine_initialized = False
+
+    stockfish_level = 0  # Giá trị mặc định
+
     while running:
         clock.tick(60)
         update_screen()
+
         if game_mode == TWO_PLAYERS:
             player_vs_player()
         elif game_mode == TWO_AIS:
+            if not level_chosen:
+                stockfish_level = choose_stockfish_level_gui(screen)  # Chọn level cho chế độ này
+                stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
+                stockfish_elo = ELO_PER_SKILL_LEVEL[stockfish_level]
+                engine_initialized = True
+                level_chosen = True
             ai_vs_ai()
+
         elif game_mode == PLAYER_VS_AI:
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
@@ -415,7 +427,7 @@ def main():
 
     # Dọn dẹp âm thanh khi thoát game
     pygame.mixer.quit()
-    stockfish_engine.quit()
+    if engine_initialized: stockfish_engine.quit()
     pygame.quit()
 
 

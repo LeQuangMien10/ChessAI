@@ -25,7 +25,6 @@ AI_VS_PLAYER = 3
 # Game
 MAX_DEPTH = 10
 TIME_LIMIT = 9
-STOCKFISH_LEVEL = 4
 STOCKFISH_WHITE = random.choice([True, False])
 # True: Stockfish (Trắng), AI (Đen)
 # False: Stockfish (Đen), AI (Trắng)

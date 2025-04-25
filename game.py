@@ -1,3 +1,7 @@
+import sys
+
+from pygame_textinput import pygame_textinput
+
 from config import *
 from sounds import sound_manager
 
@@ -138,7 +142,7 @@ def choose_promotion_pygame(screen, colorTurn):
                         return piece_
 
 
-def draw_info_panel(screen, move_history, game_mode):
+def draw_info_panel(screen, move_history, game_mode, stockfish_level):
     # Vẽ background cho panel bên phải
     info_panel = pygame.Rect(BOARD_SIZE, 0, 201, BOARD_SIZE)
     pygame.draw.rect(screen, (105, 117, 101), info_panel)
@@ -155,7 +159,7 @@ def draw_info_panel(screen, move_history, game_mode):
 
 
     #Xác định màu người chơi, AI, Stockfish
-    elo_stockfish = ELO_PER_SKILL_LEVEL[STOCKFISH_LEVEL]
+    elo_stockfish = ELO_PER_SKILL_LEVEL[stockfish_level]
     with open("elo.txt", "r") as file:
         ai_elo = float(file.readline().strip())
     ai_elo_round_number = round(ai_elo)
@@ -177,11 +181,11 @@ def draw_info_panel(screen, move_history, game_mode):
     else:
         if not STOCKFISH_WHITE:
             player_white = "My AI"
-            player_black = "Stockfish " + str(STOCKFISH_LEVEL)
+            player_black = "Stockfish " + str(stockfish_level)
             elo_white = ai_elo_round_number
             elo_black = elo_stockfish
         else:
-            player_white = "Stockfish " + str(STOCKFISH_LEVEL)
+            player_white = "Stockfish " + str(stockfish_level)
             player_black = "My AI"
             elo_white = elo_stockfish
             elo_black = ai_elo_round_number
@@ -283,3 +287,62 @@ def play_move_sound(board, move):
     Phát âm thanh tương ứng với loại nước đi
     """
     sound_manager.play_move_sound(board, move)
+
+
+import pygame
+import sys
+
+
+def choose_stockfish_level_gui(screen):
+    pygame.init()
+
+    # Load background image
+    background = pygame.image.load("images/menu/background.jpg")
+
+    font = pygame.font.Font(None, 48)
+    input_text = ""
+    clock = pygame.time.Clock()
+
+    input_box = pygame.Rect(50, 160, 200, 50)  # Ô nhập level
+
+    while True:
+        screen.blit(background, (0, 0))  # Hiển thị ảnh nền
+
+        # Hiển thị hướng dẫn
+        instruction = font.render("Enter Stockfish Level (0-20):", True, (255, 255, 255))
+        screen.blit(instruction, (50, 100))
+
+        # Vẽ ô nhập với viền
+        pygame.draw.rect(screen, (200, 200, 200), input_box, 2)
+
+        # Hiển thị text đã nhập
+        input_surface = font.render(input_text, True, (255, 255, 255))
+        screen.blit(input_surface, (input_box.x + 10, input_box.y + 10))
+
+        # Thêm dòng "Click Enter"
+        enter_hint = font.render("Click Enter", True, (255, 255, 255))
+        screen.blit(enter_hint, (input_box.x, input_box.y + 80))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    try:
+                        level = int(input_text)
+                        if 0 <= level <= 20:
+                            return level
+                        else:
+                            input_text = ""  # reset nếu không hợp lệ
+                    except ValueError:
+                        input_text = ""  # reset nếu không hợp lệ
+                elif event.key == pygame.K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif event.unicode.isdigit():
+                    input_text += event.unicode
+
+        pygame.display.flip()
+        clock.tick(30)
+
