@@ -30,7 +30,13 @@ Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại
 ## Kỹ thuật áp dụng
 - Negamax Algorithm
 - Alpha-Beta Pruning
+- Heuristic Functions
+- Move Ordering
+- Static Exchange Evaluation
+- Transposition Table
 - Iterative Deepening
 - Quiescence Search
-- Evaluate Position
+- Late Move Reduction
+- Null Move Pruning
+- Futility Pruning
 - ...
