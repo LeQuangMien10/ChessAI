@@ -10,7 +10,7 @@ Lớp: Trí Tuệ Nhân Tạo INT3401E5
 | Nguyễn Thành Phước             | 23021665  |
 
 ## ⚙️ Cài Đặt
-- Download zip và giải nén dự án [tại đây](https://github.com/LeQuangMien10/ChessAI/releases/download/Game/ChessAI.zip)
+- Download zip [tại đây](https://github.com/LeQuangMien10/ChessAI/releases/download/Game/ChessAI.zip)
 - Giải nén thư mục
 - Tìm và chạy file **ChessAI.exe**
 ## 📘 Giới thiệu
