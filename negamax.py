@@ -68,13 +68,13 @@ def quiescence_search(board_, alpha, beta, tt):
     :return: Điểm sau khi đánh giá
     """
 
-    # zobrist_key = chess.polyglot.zobrist_hash(board_)
-    # tt_probe_result = tt.probe(zobrist_key, 0, alpha, beta)
-    #
-    # if tt_probe_result is not None:
-    #     tt_score, _ = tt_probe_result
-    #     if tt_score is not None:
-    #         return tt_score
+    zobrist_key = chess.polyglot.zobrist_hash(board_)
+    tt_probe_result = tt.probe(zobrist_key, 0, alpha, beta)
+
+    if tt_probe_result is not None:
+        tt_score, _ = tt_probe_result
+        if tt_score is not None:
+            return tt_score
 
     # --- Stand-pat score ---
     eval_score = evaluate_position(board_)
@@ -163,15 +163,15 @@ def quiescence_search(board_, alpha, beta, tt):
              if alpha >= beta:
                   # --- Beta Cutoff ---
                   # Lưu vào TT (depth=0, loại LOWER_BOUND)
-                  # zobrist_key = chess.polyglot.zobrist_hash(board_) # Tính lại key nếu chưa có
-                  # tt.store(zobrist_key, 0, beta, NodeType.LOWER_BOUND, best_move_q) # Lưu beta và nước đi gây cắt tỉa
+                  zobrist_key = chess.polyglot.zobrist_hash(board_) # Tính lại key nếu chưa có
+                  tt.store(zobrist_key, 0, beta, NodeType.LOWER_BOUND, best_move_q) # Lưu beta và nước đi gây cắt tỉa
                   return beta # Fail high
 
     # --- Lưu vào TT nếu alpha được cải thiện (optional) ---
-    # if alpha > stand_pat: # Chỉ lưu nếu tìm được nước tốt hơn stand-pat
-    #     node_type = NodeType.EXACT # Vì nó nằm trong khoảng [stand_pat, beta)
-    #     zobrist_key = chess.polyglot.zobrist_hash(board_)
-    #     tt.store(zobrist_key, 0, alpha, node_type, best_move_q)
+    if alpha > stand_pat: # Chỉ lưu nếu tìm được nước tốt hơn stand-pat
+        node_type = NodeType.EXACT # Vì nó nằm trong khoảng [stand_pat, beta)
+        zobrist_key = chess.polyglot.zobrist_hash(board_)
+        tt.store(zobrist_key, 0, alpha, node_type, best_move_q)
 
     return alpha # Trả về alpha cuối cùng (điểm tốt nhất tìm được)
 
@@ -194,7 +194,7 @@ def negamax(board_: chess.Board, depth_: int, alpha: float, beta: float, ply: in
     # --- 1. Kiểm tra Kết thúc Game & Độ sâu ---
     if board_.is_checkmate():
         return -CHECKMATE_SCORE + ply
-    if board_.is_stalemate() or board_.is_insufficient_material() or board_.is_seventyfive_moves() or board_.is_fivefold_repetition():
+    if board_.is_stalemate() or board_.is_insufficient_material() or board_._is_halfmoves(100) or board_.is_repetition(3):
         return 0  # Hòa
 
     # --- Giảm độ sâu ---
