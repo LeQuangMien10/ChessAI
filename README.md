@@ -10,10 +10,9 @@ Lớp: Trí Tuệ Nhân Tạo INT3401E5
 | Nguyễn Thành Phước             | 23021665  |
 
 ## ⚙️ Cài Đặt
-- Download zip và giải nén dự án tại link https://github.com/LeQuangMien10/ChessAI/
-- Dùng IDE thích hợp và thêm các thư viện cần thiết: python-chess, pygame, ...
-- Mở file, tìm đến thư mục _main.py_ và **_RUN_**
-- Hoặc ...
+- Download zip và giải nén dự án [tại đây](https://github.com/LeQuangMien10/ChessAI/releases/download/Game/ChessAI.zip)
+- Giải nén thư mục
+- Tìm và chạy file **ChessAI.exe**
 ## 📘 Giới thiệu
 - Dự án **_AI CHESS ENGINE_** là một hệ thống AI chơi cờ vua được phát triển bằng **_ngôn ngữ Python_** và sử dụng **_pygame_** và **_chess_** để hỗ trợ tạo giao diện.
 - Mục tiêu của dự án là xây dựng một đối thủ có khả năng phân tích sâu, chơi thông minh và phản ứng nhanh trong mọi tình huống trên bàn cờ.
