@@ -121,6 +121,11 @@ def get_game_mode(screen):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_a:
+                    sound_manager.stop_lobby_music()
+                    return TWO_AIS
                 
             for i, button in enumerate(buttons):
                 if button.handle_event(event):

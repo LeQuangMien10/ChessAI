@@ -269,6 +269,13 @@ def handle_ai_turn(use_stockfish=False):
 
 
 def ai_vs_ai():
+    global level_chosen, engine_initialized, stockfish_engine, stockfish_level, stockfish_elo
+    if not level_chosen:
+        stockfish_level = choose_stockfish_level_gui(screen)  # Chọn level cho chế độ này
+        stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
+        stockfish_elo = ELO_PER_SKILL_LEVEL[stockfish_level]
+        engine_initialized = True
+        level_chosen = True
     use_stockfish = STOCKFISH_WHITE
     global running
     for event_ in pygame.event.get():
@@ -343,6 +350,11 @@ legal_moves = []
 clock = pygame.time.Clock()
 running = True
 final_depth_completed = 0
+level_chosen = False
+engine_initialized = False
+stockfish_level = 0  # Giá trị mặc định
+stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
+stockfish_elo = 0
 
 
 class MoveHistory:
@@ -399,10 +411,6 @@ move_history = MoveHistory()
 
 def main():
     global stockfish_engine, stockfish_level, stockfish_elo
-    level_chosen = False
-    engine_initialized = False
-
-    stockfish_level = 0  # Giá trị mặc định
 
     while running:
         clock.tick(60)
@@ -411,12 +419,6 @@ def main():
         if game_mode == TWO_PLAYERS:
             player_vs_player()
         elif game_mode == TWO_AIS:
-            if not level_chosen:
-                stockfish_level = choose_stockfish_level_gui(screen)  # Chọn level cho chế độ này
-                stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
-                stockfish_elo = ELO_PER_SKILL_LEVEL[stockfish_level]
-                engine_initialized = True
-                level_chosen = True
             ai_vs_ai()
 
         elif game_mode == PLAYER_VS_AI:
