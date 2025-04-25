@@ -177,7 +177,7 @@ def order_moves(
     WINNING_CAPTURE_MVV_LVA_BASE = 100_000_000 # Base cho các nước bắt quân có MVV-LVA > 0
     EQUAL_CAPTURE_MVV_LVA_BASE = 90_000_000   # Base cho các nước hòa vốn MVV-LVA (ví dụ PxP)
     # --- Điểm SEE sẽ dùng để hạ cấp các nước bắt quân tệ ---
-    LOSING_CAPTURE_SEE_THRESHOLD = -50 # Ngưỡng SEE để coi là bắt quân tệ
+    LOSING_CAPTURE_SEE_THRESHOLD = 0 # Ngưỡng SEE để coi là bắt quân tệ
     LOSING_CAPTURE_SCORE_PENALTY = 50_000_000 # Phạt nặng nếu SEE âm
 
     PROMOTION_QUEEN_SCORE= 150_000_000
