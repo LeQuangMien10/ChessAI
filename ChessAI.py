@@ -274,7 +274,6 @@ def ai_vs_ai():
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
             running = False
-            stockfish_engine.quit()
 
     handle_ai_turn(use_stockfish)
 
