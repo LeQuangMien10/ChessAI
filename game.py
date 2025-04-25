@@ -1,7 +1,3 @@
-import sys
-
-from pygame_textinput import pygame_textinput
-
 from config import *
 from sounds import sound_manager
 
@@ -264,7 +260,7 @@ def draw_info_panel(screen, move_history, game_mode, stockfish_level):
         # Vẽ nút cuộn
         total_moves = len(move_history.moves)
         visible_ratio = 10 / total_moves
-        thumb_height = max(20, scrollbar_height * visible_ratio)
+        thumb_height = max(20, int(scrollbar_height * visible_ratio))
         thumb_pos = (scrollbar_height - thumb_height) * (move_history.scroll_position / (total_moves - 10))
         thumb_rect = pygame.Rect(scrollbar_x, header_y + 35 + thumb_pos, 5, thumb_height)
         pygame.draw.rect(screen, (200, 200, 200), thumb_rect)
