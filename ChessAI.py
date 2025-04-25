@@ -269,12 +269,11 @@ def handle_ai_turn(use_stockfish=False):
 
 
 def ai_vs_ai():
-    global level_chosen, engine_initialized, stockfish_engine, stockfish_level, stockfish_elo
+    global level_chosen, stockfish_engine, stockfish_level, stockfish_elo
     if not level_chosen:
         stockfish_level = choose_stockfish_level_gui(screen)  # Chọn level cho chế độ này
         stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
         stockfish_elo = ELO_PER_SKILL_LEVEL[stockfish_level]
-        engine_initialized = True
         level_chosen = True
     use_stockfish = STOCKFISH_WHITE
     global running
@@ -351,7 +350,6 @@ clock = pygame.time.Clock()
 running = True
 final_depth_completed = 0
 level_chosen = False
-engine_initialized = False
 stockfish_level = 0  # Giá trị mặc định
 stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
 stockfish_elo = 0
@@ -428,7 +426,7 @@ def main():
 
     # Dọn dẹp âm thanh khi thoát game
     pygame.mixer.quit()
-    if engine_initialized: stockfish_engine.quit()
+    stockfish_engine.quit()
     pygame.quit()
 
 
