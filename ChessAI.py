@@ -344,7 +344,7 @@ stockfish_path = "stockfish/stockfish-windows-x86-64-avx2.exe"  # cái này là 
 
 
 game_mode = get_game_mode(screen)
-board = chess.Board('r2q1rk1/pp3ppp/2pb4/3n4/B2P4/5b2/PPP2PPP/R1BQ1RK1 w KQkq - 0 1')
+board = chess.Board()
 tt = TranspositionTable(size_mb=128)
 selected_square = None
 legal_moves = []

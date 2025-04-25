@@ -26,7 +26,6 @@ Lớp: Trí Tuệ Nhân Tạo INT3401E5
   - 👤 PLAYER vs PLAYER
   - 🤖 PLAYER vs AI (cầm quân Trắng)
   - 🤖 AI vs PLAYER (cầm quân Đen)
-  - 🤖 AI vs 🤖 (My AI vs Stockfish)
 - [x] Đánh giá **Elo** của bot qua chế độ AI vs AI
 ## 🔬 Kỹ thuật được áp dụng
 - 🧮 Negamax Algorithm
