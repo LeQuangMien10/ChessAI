@@ -1,5 +1,6 @@
 # AI CHESS ENGINE
-Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại học Công Nghệ - Đại học Quốc gia Hà Nội (UET)_ thực hiện trong môn học _Trí tuệ nhân tạo AI_ nhằm mục đích lấy điểm thành phần.
+Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại học Công Nghệ - Đại học Quốc gia Hà Nội (UET)_ thực hiện trong môn học _Trí tuệ nhân tạo AI_ 
+Lớp: Trí Tuệ Nhân Tạo INT3401E5
 ## Tác giả
  **_Group 5_**
 | Tên                            | MSV       |
@@ -20,13 +21,15 @@ Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại
 
   ![mainScreen](https://github.com/LeQuangMien10/ChessAI/blob/MinimaxAI/images/Readme_demo/mainScreen.png)
   ![gameScreen](https://github.com/LeQuangMien10/ChessAI/blob/MinimaxAI/images/Readme_demo/gameScreen.png)
-## Tính năng
-- AI có thể tính được độ sâu tối đa là 10 và ra quyết định thực hiện nước đi với thời gian < 10s
-- Người dùng có thể chọn 1 trong 4 chế độ chơi:
-  + **_PLAYER vs PLAYER_**: 2 người chơi có thể so tài với nhau.
-  + **_PLAYER vs AI_**: Người chơi sẽ so tài với bot **"_My AI_"** và cầm quân **_Trắng_**.
-  + **_AI vs PLAYER_**: Người chơi sẽ so tài với bot **_"My AI"_** và cầm quân **_Đen_**.
-  + **_AI vs AI_**: bot **_My AI_** sẽ so tài với engine **_Stockfish_** với các cấp độ khác nhau. Chức năng này còn giúp nhà phát triển đánh giá được Elo của bot **"_My AI_"**
+## Tính năng## 
+- [x] Độ sâu tối đa của AI: **10**, thời gian phản hồi < **10s**
+- [x] Chế độ chơi đa dạng:
+  - 👤 PLAYER vs PLAYER
+  - 🤖 PLAYER vs AI (cầm quân Trắng)
+  - 🤖 AI vs PLAYER (cầm quân Đen)
+  - 🤖 AI vs 🤖 (My AI vs Stockfish)
+- [x] Đánh giá **Elo** của bot qua chế độ AI vs AI
+
 ## Kỹ thuật áp dụng
 - Negamax Algorithm
 - Alpha-Beta Pruning
@@ -40,3 +43,6 @@ Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại
 - Null Move Pruning
 - Futility Pruning
 - ...
+## 🤝 Đóng góp
+Chúng mình hoan nghênh mọi đóng góp từ cộng đồng! Nếu bạn có ý tưởng hay cải tiến, hãy tạo pull request hoặc liên hệ qua GitHub.
+Chân thành cảm ơn!
