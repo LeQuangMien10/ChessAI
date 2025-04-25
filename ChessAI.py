@@ -61,6 +61,7 @@ def update_screen():
     draw_info_panel(screen, move_history, game_mode, stockfish_level)
     pygame.display.flip()
 
+
 def player_vs_ai():
     global running, selected_square, legal_moves
 
@@ -123,7 +124,6 @@ def player_vs_ai():
 
     if board.is_game_over():
         handle_game_end()
-
 
 
 def ai_vs_player():
@@ -279,6 +279,7 @@ def ai_vs_ai():
     global running
     for event_ in pygame.event.get():
         if event_.type == pygame.QUIT:
+            stockfish_engine.quit()
             running = False
 
     handle_ai_turn(use_stockfish)
@@ -289,6 +290,7 @@ def ai_vs_ai():
     if board.is_game_over():
         ai_color = chess.BLACK if use_stockfish else chess.WHITE
         handle_game_end(ai_color)  # Màu AI
+        stockfish_engine.quit()
         running = False
 
 
@@ -351,7 +353,7 @@ running = True
 final_depth_completed = 0
 level_chosen = False
 stockfish_level = 0  # Giá trị mặc định
-stockfish_engine = StockfishEngine(stockfish_path, skill_level=stockfish_level)
+stockfish_engine = None
 stockfish_elo = 0
 
 
@@ -418,7 +420,6 @@ def main():
             player_vs_player()
         elif game_mode == TWO_AIS:
             ai_vs_ai()
-
         elif game_mode == PLAYER_VS_AI:
             player_vs_ai()
         elif game_mode == AI_VS_PLAYER:
@@ -426,7 +427,6 @@ def main():
 
     # Dọn dẹp âm thanh khi thoát game
     pygame.mixer.quit()
-    stockfish_engine.quit()
     pygame.quit()
 
 
