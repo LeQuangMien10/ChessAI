@@ -1,7 +1,7 @@
 # ♟️ AI CHESS ENGINE
 Dự án của sinh viên khoa _Công nghệ thông tin_ của _trường Đại học Công Nghệ - Đại học Quốc gia Hà Nội (UET)_ thực hiện trong môn học _Trí tuệ nhân tạo AI_ 
-Lớp: Trí Tuệ Nhân Tạo INT3401E5
-Link Demo:[tại đây](https://youtu.be/Tvjdk1hNtXM?si=jV2fROHmolWCmv34)
+- Lớp: Trí Tuệ Nhân Tạo INT3401E5
+- Link Demo: [Link Demo](https://youtu.be/Tvjdk1hNtXM?si=jV2fROHmolWCmv34)
 
 ## 👨‍💻 Tác giả
  **_Group 5_**
